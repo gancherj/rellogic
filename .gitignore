@@ -5,3 +5,4 @@
 *.*~
 *~
 .coqdeps.d
+Makefile.conf

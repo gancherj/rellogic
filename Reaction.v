@@ -202,7 +202,11 @@ Fixpoint ROutputs (r : rlist) : seq N:=
   | rewr_unprod : forall rs (r1 r2 : reaction) n (H : (tag r1).1.1 = (tag r2).1.1),
       n \notin RChans rs ->
       let p := reaction_prod r1 r2 n H in
-      r_rewr (inl p.1.1 :: inl p.1.2 :: inl p.2 :: rs) (inl r1 :: inl r2 :: rs).
+      r_rewr (inl p.1.1 :: inl p.1.2 :: inl p.2 :: rs) (inl r1 :: inl r2 :: rs)
+  | rewr_remove : forall rs (r : reaction),
+      (tag r).1.2 = false ->
+      (tag r).2.1 \notin RChans rs ->
+      r_rewr (inl r :: rs) rs.
   End RDef.
 
 Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr N T _)
@@ -211,8 +215,25 @@ Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr N
 
 Arguments r_rewr [N T H].
 
+Arguments rct [N T H].
+Arguments drct [N T H].
+Arguments lift_det [N T H].
+
+Arguments Reaction [N T H].
+
+Notation "G ~> c 'vis' D" := (inl (existT _ (G, true, c) D)) (at level 80).
+
+Notation "G ~> c 'dvis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, true, c) (lift_det G c D))) (at level 80).
+
+Notation "G ~> c 'hid' D" := (inl (existT _ (G, false, c) D)) (at level 80).
+
+Notation "G ~> c 'dhid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, false, c) (lift_det G c D))) (at level 80).
+
 Section RLems.
+
   Context (N T : choiceType) `{type T}.
+
+
 
   Lemma rewr_rot : forall n (rs : rlist N T), r_rewr rs (rot_rcons n rs).
     intros.
@@ -220,19 +241,51 @@ Section RLems.
     apply Perm_rot.
   Qed.
 
-    Lemma lift_det1 (n : N * T) b h (f : denomT n.2 -> denomT h.2) :
-      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction N T ns.1.1 ns.2) ([:: n], b, h) (fun x => ret (f x)) =
-      existT (fun ns => Reaction N T ns.1.1 ns.2) ([:: n], b, h) (lift_det _ _ [:: n] h f).
+    Lemma lift_det0  b h (f : denomT h.2) :
+      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) (nil, b, h) (ret f) =
+      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) (nil, b, h) (lift_det nil h f).
       done.
     Qed.
 
+    Lemma lift_det1 (n : N * T) b h (f : denomT n.2 -> denomT h.2) :
+      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) ([:: n], b, h) (fun x => ret (f x)) =
+      existT (fun ns => Reaction ns.1.1 ns.2) ([:: n], b, h) (lift_det  [:: n] h f).
+      done.
+    Qed.
 
-    Lemma rewr_subst1 (rs : rlist N T) ns b1 b2 h f (r : detReaction N T ns h) (k : Reaction N T (h :: ns) f):
-    r_rewr (inl (existT _ (_, b1, _) (lift_det _ _ _ _ r)) :: inl (existT (fun ns => Reaction N T ns.1.1 ns.2) (_, b2, _) k) :: rs)
-           (inl (existT _ (_, b1, _) (lift_det _ _ _ _ r)) :: inl (existT (fun ns => Reaction N T ns.1.1 ns.2) (_, b2, _) (detReaction_subst _ _ r k)) :: rs).
-      apply rewr_subst.
+    Lemma lift_det2 (n n' : N * T) b h (f : denomT n.2 -> denomT n'.2 -> denomT h.2) :
+      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) ([:: n; n'], b, h) (fun x y => ret (f x y)) =
+      existT (fun ns => Reaction ns.1.1 ns.2) ([:: n; n'], b, h) (lift_det  [:: n; n'] h f).
+      done.
+    Qed.
+
+    Lemma lift_det3 (n n' n'' : N * T) b h (f : denomT n.2 -> denomT n'.2 -> denomT n''.2 -> denomT h.2) :
+      existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) ([:: n; n'; n''], b, h) (fun x y z => ret (f x y z)) =
+      existT (fun ns => Reaction ns.1.1 ns.2) ([:: n; n'; n''], b, h) (lift_det  [:: n; n'; n''] h f).
+      done.
     Qed.
 
 End RLems.
 
 
+Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
+
+    Ltac r_swap from to := etransitivity; [apply rewr_perm; apply (Perm_swap from to) | idtac]; rewrite /swap /=.
+
+    Ltac rct_swap from to := etransitivity; [apply (rewr_r_perm _ _ _ _ (Perm_swap from to _)) | idtac]; rewrite /swap /=.
+
+    Ltac r_prod n := rewrite (rewr_prod _ _ n); [instantiate (1 := erefl) | done]; simpl.
+
+    Ltac r_at n t := r_swap n 0%N; t; r_swap n 0%N.
+
+    Ltac r_weak n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
+
+    Ltac r_subst := rewrite rewr_subst; rewrite /rct /drct /=.
+
+    Ltac r_str := rewrite rewr_str /rct /=; [idtac | done].
+
+    Lemma r_rewr_r {N} {T : choiceType} `{type T} (r1 r2 r3 : rlist N T) : r2 ~~> r3 -> r1 ~~> r2 -> r1 ~~> r3.
+      intro ; etransitivity.
+      apply H1.
+      done.
+     Qed.

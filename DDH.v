@@ -6,32 +6,6 @@ From mathcomp Require Import cyclic zmodp.
 
 Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps.
 
-Check rct.
-Arguments rct [N T H].
-Arguments drct [N T H].
-Arguments lift_det [N T H].
-
-Notation "G ~> c 'vis' D" := (inl (existT _ (G, true, c) D)) (at level 80).
-(*
-Notation "G ~> c 'vis' D" := (inl (rct G c true D)) (at level 80).
-
-Notation "G ~> c 'dvis' D" := (inl (drct G c true D)) (at level 80).
-
-Notation "G ~> c 'hid' D" := (inl (rct G c false D)) (at level 80).
-Notation "G ~> c 'dhid' D" := (inl (drct G c false D)) (at level 80).
-*)
-
-Arguments Reaction [N T H].
-
-Notation "G ~> c 'dvis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, true, c) (lift_det G c D))) (at level 80).
-
-Notation "G ~> c 'hid' D" := (inl (existT _ (G, false, c) D)) (at level 80).
-
-Notation "G ~> c 'dhid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, false, c) (lift_det G c D))) (at level 80).
-
-
-Notation inp x := (inr _ _ x).
-
 Section DDH.
   Context (G : finGroupType) (g : G).
   Definition q := order g.
@@ -119,33 +93,6 @@ Definition ddh1 : rl :=
                                                               (fun t y => (t.1.2, t.2 * (g ^+ y))%g)
                                                               ].
 
-
-  Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
-
-    Ltac r_swap from to := etransitivity; [apply rewr_perm; apply (Perm_swap from to) | idtac]; rewrite /swap /=.
-
-    Ltac rct_swap from to := etransitivity; [apply (rewr_r_perm _ _ _ _ (Perm_swap from to _)) | idtac]; rewrite /swap /=.
-
-    Ltac r_prod n := rewrite (rewr_prod _ _ n); [instantiate (1 := erefl) | done]; simpl.
-
-    Ltac r_at n t := r_swap n 0%N; t; r_swap n 0%N.
-
-    Ltac r_weak n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
-
-    Ltac r_subst := rewrite rewr_subst; rewrite /rct /drct /=.
-
-    Ltac r_str := rewrite rewr_str /rct /=; [idtac | done].
-
-    Lemma r_rewr_r (r1 r2 r3 : rl) : r2 ~~> r3 -> r1 ~~> r2 -> r1 ~~> r3.
-      intro ; etransitivity.
-      apply H0.
-      done.
-     Qed.
-
-    
-    
- 
-
     Close Scope posrat_scope.
     Open Scope nat_scope.
 
@@ -161,6 +108,12 @@ Definition ddh1 : rl :=
     r_at 1 ltac:(rct_swap 1 0).
     r_subst.
     r_at 1 ltac:(r_str).
+    r_swap 1 0.
+    r_swap 5 1.
+    r_weak "tmp" (tyPair tyZq tyZq).
+    r_swap 1 0.
+
+
 
     r_swap 1 0.
     r_str.
