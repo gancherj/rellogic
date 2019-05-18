@@ -625,3 +625,13 @@ Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
     Ltac r_unfold1 midty midn :=
       lift_bind1 midty midn; 
       etransitivity; [eapply rewr_unfold; done | idtac]; rewrite /rct /=.
+
+  Ltac r_move n x :=
+    match goal with
+      | [ |- @r_rewr _ _ _ ?rs _] => 
+        let e := eval compute in (r_find rs n)  in
+            match e with
+              | None => fail
+              | Some ?i => r_swap i x
+                                                end
+          end.
