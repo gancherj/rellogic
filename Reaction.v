@@ -5,7 +5,6 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint finset ssrnum ssrnat
 Require Import Premeas Meas Posrat Aux finfun_fixed SeqOps.
 
 
-
 Class type (T : eqType) :=
   {
     denomT : T -> finType;
@@ -219,7 +218,21 @@ Fixpoint ROutputs (r : rlist) : seq N:=
            match r with
            | inl (existT (a, b, c) r) => if i c.1 then inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, false, c) r) else inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, b, c) r) 
            | inr m => inr m end) rs.                                                                                            
-  Definition rlist_comp_hide (r1 r2 : rlist) := rlist_hide (rlist_comp r1 r2) (fun n => (n \in RChans r1) && (n \in RChans r2)).
+
+  Check pmap.
+
+  Definition rlist_nub_hide (r : rlist) (chans1 chans2 : seq N) : rlist :=
+    pmap (fun rct =>
+            match rct with
+            | inl (existT (a,b,c) r) => if (c.1 \in chans1) && (c.1 \in chans2) then
+                                          Some (inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, false, c) r)) else
+                                          Some rct
+            | inr i => if (i \in chans1) && (i \in chans2) then None else Some (inr i)
+                                                                               end) r.
+  Definition rlist_comp_hide r1 r2 :=
+    let c1 := RChans r1 in
+    let c2 := RChans r2 in
+    (rlist_nub_hide r1 c1 c2) ++ (rlist_nub_hide r2 c1 c2).
 
   Definition use_dominates (rs : rlist) (h : N) (c : N) :=
     all (fun ri =>
@@ -570,34 +583,8 @@ End RLems.
 
 Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
 
-    Ltac r_swap from to := etransitivity; [apply rewr_perm; apply (Perm_swap from to) | idtac]; rewrite /swap /=.
-
-    Ltac rct_swap from to := etransitivity; [apply (rewr_r_perm _ _ _ _ (Perm_swap from to _)) | idtac]; rewrite /swap /=.
-
-    Ltac r_prod n := rewrite (rewr_prod _ _ n); [instantiate (1 := erefl) | done]; simpl.
-
-    Ltac r_at n t := r_swap n 0%N; t; r_swap n 0%N.
-
-    Ltac r_weak n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
-
-    Ltac r_subst := rewrite rewr_subst; rewrite /rct /drct /=.
-
-    Ltac r_str := etransitivity; [apply rewr_str; done | idtac].
-
-    Ltac r_str_inv :=
-    etransitivity; [
-    match goal with 
-    | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
-                                                                end | idtac].
-
-    Lemma r_rewr_r {N} {T : choiceType} `{type T} (r1 r2 r3 : rlist N T) : r2 ~~> r3 -> r1 ~~> r2 -> r1 ~~> r3.
-      intro ; etransitivity.
-      apply H1.
-      done.
-     Qed.
-
-
-    Ltac r_rename x y := etransitivity; [apply (rewr_rename _ _ _ x y); done | idtac]; simpl.
+Notation "x ||| y" := (rlist_comp_hide _ _ x y) (at level 40).
+Notation "x |||v y" := (rlist_comp _ _ x y) (at level 40).
 
     Fixpoint r_find {N T : choiceType} `{type T} (r : rlist N T) (n : N) : option nat :=
       match r with
@@ -609,7 +596,83 @@ Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
             | None => None
           end
             end.
-        
+
+  Fixpoint arg_find {N T : choiceType} `{type T} (r : seq (N * T)) (n : N) : option nat :=
+    match r with
+    | nil => None
+    | p :: rs =>
+      if p.1 == n then Some 0%N else
+        match arg_find rs n with
+          | Some i => Some (S i)
+          | None => None
+        end
+          end.
+
+  Ltac r_idx_of n :=
+    match (type of n) with
+    | nat => n
+    | _ =>
+      match goal with
+        | [ |- @r_rewr _ _ _ ?rs _ ] => 
+            let i := eval simpl in (r_find rs n) in 
+                match i with
+                  | Some ?a => a
+                  | None => fail "sequent not found: " n
+                                 end
+                end
+             end.
+
+  Ltac arg_idx_of n :=
+    match (type of n) with
+    | nat => n
+    | _ =>
+      match goal with
+        | [ |- @r_rewr _ _ _ (inl ?r :: _) _ ] => 
+            let i := eval simpl in (arg_find (tag r).1.1 n) in 
+                match i with
+                  | Some ?a => a
+                  | None => fail "argument not found: " n
+                                 end
+                end
+             end.
+
+  Ltac r_move from to :=
+   let i := r_idx_of from in 
+   let j := r_idx_of to in
+   etransitivity; [apply rewr_perm; apply (Perm_swap i j) | idtac]; rewrite /swap /=.
+
+  Ltac arg_move from to :=
+   let i := arg_idx_of from in 
+   let j := arg_idx_of to in
+   etransitivity; [apply (rewr_r_perm _ _ _ _ (Perm_swap i j _)) | idtac]; rewrite /swap /=.
+
+    Ltac r_prod n := rewrite (rewr_prod _ _ n); [instantiate (1 := erefl) | done]; simpl.
+
+    Ltac r_at n t := r_move n 0%N; t; r_move n 0%N.
+
+    Ltac r_weak_ n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
+
+    Ltac r_weak n1 n2 n t :=
+      r_move n1 1%N;
+      r_move n2 0%N;
+      r_weak_ n t.
+
+    Ltac r_subst := rewrite rewr_subst; rewrite /rct /drct /=.
+
+    Ltac r_str_ := etransitivity; [apply rewr_str; done | idtac].
+
+    Ltac r_str n1 n2 :=
+      r_move n1 0%N;
+      r_move n2 1%N;
+      r_str_.
+
+    Ltac r_str_inv :=
+    etransitivity; [
+    match goal with 
+    | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
+                                                                end | idtac].
+
+    Ltac r_rename x y := etransitivity; [apply (rewr_rename _ _ _ x y); done | idtac]; simpl.
 
     Ltac r_ext tm :=
       etransitivity; [apply rewr_ext; instantiate (1 := tm); rewrite /React_eq //= | idtac].
@@ -626,12 +689,15 @@ Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
       lift_bind1 midty midn; 
       etransitivity; [eapply rewr_unfold; done | idtac]; rewrite /rct /=.
 
-  Ltac r_move n x :=
+
+  Ltac r_find n :=
     match goal with
       | [ |- @r_rewr _ _ _ ?rs _] => 
-        let e := eval compute in (r_find rs n)  in
-            match e with
-              | None => fail
-              | Some ?i => r_swap i x
-                                                end
-          end.
+        let e := eval compute in (r_find rs n)  in e
+                                                     end.
+
+  Ltac r_remove := etransitivity; [apply (rewr_remove _ _); done | idtac]; simpl.
+
+  Ltac arg_focus n :=
+    let i := arg_idx_of n in
+    arg_move i 0%N.
