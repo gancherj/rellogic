@@ -208,3 +208,36 @@ Lemma Perm_swap {A} from to (xs : list A) : Perm xs (swap from to xs).
   apply perm_skip.
   apply IHl1.
 Defined.
+
+Lemma Perm_map {A B} (f : A -> B) (xs ys : list A)  :
+  Perm xs ys -> Perm (map f xs) (map f ys).
+  elim.
+  simpl.
+  done.
+  simpl.
+  intros.
+  apply perm_skip.
+  apply X.
+  intros; simpl.
+  apply perm_swap.
+  intros; simpl in *.
+  eapply perm_trans.
+  apply X.
+  apply X0.
+Defined.
+
+Lemma Perm_mem {A : eqType} (xs ys : seq A) :
+  Perm xs ys -> forall x, (x \in xs) = (x \in ys).
+  intro.
+  induction X.
+  done.
+  intro; rewrite !in_cons.
+  destruct (eqVneq x0 x).
+  subst.
+  rewrite eq_refl //=.
+  rewrite (negbTE i) //=.
+  intros; simpl; rewrite !in_cons //=.
+  destruct (x0 == y); destruct (x0 == x); destruct (x0 \in l); done.
+  intros.
+  rewrite -IHX2 //=.
+Qed.

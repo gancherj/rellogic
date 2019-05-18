@@ -47,7 +47,7 @@ Section RDef.
     apply (detReaction_subst _ _ n' (r y) (fun z => k z y) x).
   Defined.
 
-  Fixpoint React_eq {ns n} (r1 r2 : Reaction ns n) {struct ns} : Prop.
+  Fixpoint React_eq ns n (r1 r2 : Reaction ns n) {struct ns} : Prop.
   destruct ns; simpl in *.
   apply (r1 = r2).
   apply (forall x, React_eq _ _ (r1 x) (r2 x)).
@@ -62,6 +62,15 @@ Section RDef.
   simpl in *.
   destruct (a.1 == n).
   simpl in *.
+  apply (fun x => IHns (r x)).
+  apply (fun x => IHns (r x)).
+  Defined.
+
+  Definition React_subst_val {ns f} (r : Reaction ns f) (n n' : N) : Reaction ns (if f.1 == n then n' else f.1, f.2).
+  induction ns.
+  apply r.
+  simpl in *.
+  destruct (f.1 == n).
   apply (fun x => IHns (r x)).
   apply (fun x => IHns (r x)).
   Defined.
@@ -129,7 +138,7 @@ simpl.
 apply (fun _ => r).
 Defined.
 
-Definition reaction_subst_n (r : reaction) (n n' : N) : reaction.
+Definition reaction_subst_arg (r : reaction) (n n' : N) : reaction.
 destruct r.
 econstructor.
 instantiate (1 := (subst_arg x.1.1 n n', x.1.2, x.2)).
@@ -138,12 +147,33 @@ apply React_subst_arg.
 apply r.
 Defined.
 
+Definition reaction_subst (r : reaction) (n n' : N) : reaction.
+destruct r.
+econstructor.
+instantiate (1 := (subst_arg x.1.1 n n', x.1.2, (if x.2.1 == n then n' else x.2.1, x.2.2))).
+simpl.
+apply React_subst_arg.
+apply React_subst_val.
+apply r.
+Defined.
+
+Definition reaction_eq (r1 r2 : reaction) : Prop.
+destruct r1, r2.
+case (eqVneq x x0).
+intro; subst.
+apply (React_eq _ _ r r0).
+intro; apply False.
+Defined.
+
 Definition reaction_dep (r : reaction) (n : N) := n \in map fst (tag r).1.1.
 
 Definition rlist := list (reaction + N).
 
-Definition rlist_subst_n (r : rlist) (n n' : N) : rlist :=
-  map (fun a => match a with | inr m => inr m | inl r => inl (reaction_subst_n r n n') end) r.
+Definition rlist_subst_arg (r : rlist) (n n' : N) : rlist :=
+  map (fun a => match a with | inr m => inr m | inl r => inl (reaction_subst_arg r n n') end) r.
+
+Definition rlist_subst (r : rlist) (n n': N) : rlist :=
+  map (fun a => match a with | inr m => inr (if m == n then n' else m) | inl r => inl (reaction_subst r n n') end) r.
 
   Fixpoint RHiddens (r : rlist) : seq N :=
     match r with
@@ -197,38 +227,43 @@ Fixpoint ROutputs (r : rlist) : seq N:=
              | inl r => (h \in map fst ((tag r).1.1)) ==> (c \in map fst ((tag r).1.1))
              | inr _ => true end) rs.
 
-  Check @rct.
+  Check reaction_bind.
 
   Inductive r_rewr : rlist -> rlist -> Prop :=
   | rewr_refl : forall r, r_rewr r r
   | rewr_trans : forall r1 r2 r3, r_rewr r1 r2 -> r_rewr r2 r3 -> r_rewr r1 r3
   | rewr_perm : forall rs rs', Perm rs rs' -> r_rewr rs rs'
   | rewr_r_perm : forall rs r {ns} (H : Perm _ ns), r_rewr (inl r :: rs) (inl (reaction_perm r H) :: rs)
-  | rewr_unfold : forall rs r n (k : (denomT (tag r).2.2 -> Reaction (tag r).1.1 n)) (b : bool) ,
-      (tag r).2.1 \notin RChans rs ->
-      (tag r).2.1 != n.1 ->
-      (tag r).1.2 = false ->
-      r_rewr (inl (reaction_bind r n b k) :: rs) 
-             (inl r :: inl (@rct ((tag r).2 :: (tag r).1.1) _ b k) :: rs)
-
-  | rewr_fold : forall rs (r : reaction) n (k : denomT (tag r).2.2 -> Reaction (tag r).1.1 n) (b : bool) ,
-      (tag r).2.1 \notin RChans rs ->
-      (tag r).2.1 != n.1 ->
-      (tag r).1.2 = false ->
-      r_rewr (inl r :: inl (@rct ((tag r).2 :: (tag r).1.1) _ b k) :: rs)
-             (inl (reaction_bind r n b k) :: rs) 
+  | rewr_ext : forall rs p (k k' : Reaction p.1.1 p.2),
+      React_eq _ _ k k' ->
+      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) p k) :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) p k') :: rs)
+  | rewr_unfold : forall rs ns rf (r : Reaction ns rf) n (k : (denomT rf.2 -> Reaction ns n)) (b : bool) ,
+      rf.1 \notin RChans rs ->
+      rf.1 != n.1 ->
+      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b, _) (rbind r k)) :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, false, _) r) :: inl (@rct (rf :: ns) _ b k) :: rs)
+  | rewr_fold : forall rs ns rf (r : Reaction ns rf) n (k : (denomT rf.2 -> Reaction ns n)) (b : bool) ,
+      rf.1 \notin RChans rs ->
+      rf.1 != n.1 ->
+      r_rewr 
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, false, _) r) :: inl (@rct (rf :: ns) _ b k) :: rs)
+            (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b, _) (rbind r k)) :: rs)
   | rewr_subst : forall (rs : rlist) ns b1 b2 h f (r : detReaction ns h) (k : Reaction (h :: ns) f),
       r_rewr (inl (drct b1 r) :: inl (rct b2 k) :: rs)
-             (inl (drct b1 r) :: inl (rct b2 (detReaction_subst r k)) :: rs)
-  | rewr_str : forall (rs : rlist) (r : reaction) ns b f (k : Reaction ns f),
+             (inl (drct b1 r) :: inl (rct b2 (detReaction_subst r k)) :: rs)             
+  | rewr_str : forall (rs : rlist) (r : reaction) ns b f (k : Reaction ns f) n,
       (all (fun x => x \in ns) (tag r).1.1) ->
-      r_rewr (inl (@rct ((tag r).2 :: ns) _ b (fun _ => k)) :: inl r :: rs)
-             (inl (rct b k) :: inl r :: rs)
-  | rewr_str_inv : forall (rs : rlist) (r : reaction) ns b f (k : Reaction ns f),
+      n = (tag r).2 ->
+      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (n :: ns, b, _) (fun _ => k)) :: inl r :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inl r :: rs)
+  | rewr_str_inv : forall n (rs : rlist) (r : reaction) ns b f (k : Reaction ns f),
       (tag r).1.2 = false ->
       (all (fun x => x \in ns) (tag r).1.1) ->
-      r_rewr (inl (rct b k) :: inl r :: rs)
-             (inl (@rct ((tag r).2 :: ns) _ b (fun _ => k)) :: inl r :: rs)
+      n = (tag r).2 ->
+      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inl r :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (n :: ns, b, _) (fun _ => k)) :: inl r :: rs)
+
   | rewr_weak : forall n (rs : rlist) (r : reaction) (r' : reaction), 
       n \in (tag r).1.1 ->
       reaction_dep r' (tag r).2.1 ->
@@ -255,7 +290,13 @@ Fixpoint ROutputs (r : rlist) : seq N:=
   | rewr_add : forall rs (r : reaction),
       (tag r).1.2 = false ->
       (tag r).2.1 \notin RChans rs ->
-      r_rewr rs (inl r :: rs) .
+      r_rewr rs (inl r :: rs)
+  | rewr_rename : forall rs n n',
+      n \notin RInputs rs ->
+      n \notin ROutputs rs ->
+      n' \notin RChans rs ->
+      r_rewr rs (rlist_subst rs n n')
+  .
   End RDef.
 
 Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr N T _)
@@ -314,6 +355,18 @@ Section RLems.
       done.
     Qed.
 
+    Check React_eq.
+    Check rbind.
+    
+    Lemma lift_bind t f (m : meas (denomT t)) (k : denomT t -> meas (denomT f.2)) (n : N) :
+      @React_eq _ _ _ nil f (mbind m k) (@rbind _ _ _ nil (n,t) f m k).
+      rewrite /rbind //=.
+    Qed.
+
+    Lemma lift_bind1 (p : N * T) t f (n : N) (m : denomT p.2 -> meas (denomT t)) (k : denomT p.2 -> denomT t -> meas (denomT f.2)) :
+      @React_eq _ _ _ [:: p] f (fun x => mbind (m x) (k x)) (@rbind _ _ _ [:: p] (n,t) f m (fun x y => k y x)).
+      rewrite /rbind //=.
+    Qed.
 
     Arguments RChans [N T H].
     Arguments ROutputs [N T H].
@@ -479,9 +532,8 @@ Section RLems.
       rewrite chan_of_reaction_perm.
       done.
       intro.
-      rewrite !r_wf_cons !in_cons //=.
-      destruct r.
-      simpl in *.
+      rewrite r_wf_cons //=.
+      (*
       rewrite (negbTE H0) orbF.
       rewrite r_wf_cons //= in H3.
       rewrite H1 //=.
@@ -500,6 +552,7 @@ Section RLems.
       rewrite !chan_of_reaction_weak.
       done.
       rewrite !r_wf_cons chan_of_reaction_weak //=.
+
       admit. (* comp *)
       rewrite !r_wf_cons.
       rewrite /p //=.
@@ -509,7 +562,9 @@ Section RLems.
       intro; rewrite r_wf_cons H2 andbT.
       destruct r; simpl in *.
       done.
+*)
    Admitted.
+
 End RLems.
 
 
@@ -527,12 +582,46 @@ Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
 
     Ltac r_subst := rewrite rewr_subst; rewrite /rct /drct /=.
 
-    Ltac r_str := rewrite rewr_str /rct /=; [idtac | done].
+    Ltac r_str := etransitivity; [apply rewr_str; done | idtac].
+
+    Ltac r_str_inv :=
+    etransitivity; [
+    match goal with 
+    | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
+                                                                end | idtac].
 
     Lemma r_rewr_r {N} {T : choiceType} `{type T} (r1 r2 r3 : rlist N T) : r2 ~~> r3 -> r1 ~~> r2 -> r1 ~~> r3.
       intro ; etransitivity.
       apply H1.
       done.
-
-    
      Qed.
+
+
+    Ltac r_rename x y := etransitivity; [apply (rewr_rename _ _ _ x y); done | idtac]; simpl.
+
+    Fixpoint r_find {N T : choiceType} `{type T} (r : rlist N T) (n : N) : option nat :=
+      match r with
+      | nil => None
+      | m :: rs' =>
+        if chan_of _ _ m == n then Some 0%N else
+          match r_find rs' n with
+            | Some i => Some (S i)
+            | None => None
+          end
+            end.
+        
+
+    Ltac r_ext tm :=
+      etransitivity; [apply rewr_ext; instantiate (1 := tm); rewrite /React_eq //= | idtac].
+
+  Arguments rbind [N T H ].
+
+    Ltac lift_bind1 t n :=
+      etransitivity; [ apply rewr_ext; 
+    match goal with
+    | [ |- React_eq _ _ (?from :: nil, _, _).1.1 ?to (fun arg => mbind ?m ?k) _] => apply: (@lift_bind1 _ _ _ from t to n _ _ )
+                                                                                          end | idtac].
+
+    Ltac r_unfold1 midty midn :=
+      lift_bind1 midty midn; 
+      etransitivity; [eapply rewr_unfold; done | idtac]; rewrite /rct /=.
