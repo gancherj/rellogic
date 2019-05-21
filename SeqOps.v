@@ -209,6 +209,12 @@ Lemma Perm_swap {A} from to (xs : list A) : Perm xs (swap from to xs).
   apply IHl1.
 Defined.
 
+
+Lemma Perm_swap_irrel {A} from to (xs : list A) : Perm xs (swap from to xs).
+  apply Perm_swap.
+Qed.
+
+
 Lemma Perm_map {A B} (f : A -> B) (xs ys : list A)  :
   Perm xs ys -> Perm (map f xs) (map f ys).
   elim.

@@ -445,7 +445,7 @@ Ltac get_args1 :=
   Ltac r_move from to :=
    let i := r_idx_of from in 
    let j := r_idx_of to in
-   etransitivity; [apply rewr_perm; apply (Perm_swap i j) | idtac]; rewrite /swap /=.
+   etransitivity; [apply rewr_perm; apply (Perm_swap_irrel i j) | idtac]; rewrite /swap /=.
 
   (* move arguments 'from' to 'to'  in the first reaction *)
   Ltac arg_move from to :=
@@ -483,10 +483,7 @@ Ltac get_args1 :=
         | false => fail "reaction value " n2 " not found in " n1
         | true => 
         let x := eval compute in (ofind_val args2 (fun x => x \notin args1)) in
-            match x with
-                | Some ?a => k constr:(Some a)
-                | None => fail "no further elements in arguments of " n2 " not contained in args of " n1
-            end
+        k x
         end.
 
     Ltac r_weak n1 n2 :=
@@ -494,16 +491,30 @@ Ltac get_args1 :=
         ltac:(fun p =>
            let j := eval compute in p in
            match j with
-           | Some (?p1, ?p2) => r_weak_by n1 n2 p1 p2
-           | _ => fail "unknown err"
+           | Some ?p1p2 => r_weak_by n1 n2 constr:(p1p2.1) constr:(p1p2.2); r_weak n1 n2
+           | None => idtac                                                             
+           | _ => idtac "hello" j
                     end).
 
 
+    Ltac ensure_arg_prefix ns ctr :=
+      match ns with
+      | nil => idtac
+      | (?x :: ?xs) =>
+        arg_move x ctr; ensure_arg_prefix xs (S ctr)
+                                          end.
+
     (* substute deterministic x into y *)
     Ltac r_subst x y :=
+      r_weak y x;
+      r_move y 0%N;
+      let a := get_args1 in
+      let ns := eval compute in (map fst a) in
+      ensure_arg_prefix ns 0%N;
+      arg_focus x;
       r_move x 0%N;
-      r_move y 1%N;
-      etransitivity; [ refine (rewr_subst _ _ _ _ _ _ _ _ _ _ _ _); eexists; apply erefl | idtac]; rewrite /= /eq_rect_r /=.
+      rewrite ?lift_det1;
+      etransitivity; [ refine (rewr_subst _ _ _ _ _ _ _ _ _ _ _ _); ltac:(eexists; apply erefl) + idtac | idtac]; rewrite /= /eq_rect_r /=.
 
     Ltac r_str_ := etransitivity; [apply rewr_str; done | idtac].
 
@@ -513,6 +524,11 @@ Ltac get_args1 :=
       r_move n2 1%N;
       arg_focus n2;
       r_str_.
+
+    Ltac r_str_inp n1 n2 :=
+      r_move n1 0%N;
+      r_move n2 1%N;
+      rewrite rewr_str_inp.
 
     Ltac r_weakstr n1 n2 :=
       r_weak n1 n2;
@@ -534,17 +550,52 @@ Ltac get_args1 :=
   Arguments rbind [N T H ].
 
   (* if 'm' is a bind, lift the bind to fresh arg 'n' of type 't' *)
-    Ltac lift_bind1 m n t :=
-      r_move m 0%N;
-      etransitivity; [ apply rewr_ext; 
+    Ltac unfold_bind0 n midn midty :=
     match goal with
-    | [ |- React_eq _ _ (?from :: nil, _, _).1.1 ?to (fun arg => mbind ?m ?k) _] => apply: (@lift_bind1 _ _ _ from t to n _ _ )
-                                                                                          end | idtac].
+    | [ |- @r_rewr _ _ _ (inl (existT _ (_, _, ?to) (mbind ?m ?k)) :: ?rs) _] =>
+      etransitivity; [
+        refine (@rewr_ext _ _ _ _ (nil, _, to) (mbind m k) (@rbind _ _ _ nil (midn, midty) to m k) _); done | idtac]
+    end;
+    rewrite rewr_unfold; [idtac | done | done]; rewrite /rct /=.
 
-    (* unfold a bind *)
-    Ltac r_unfold1 midty midn :=
-      lift_bind1 midty midn; 
-      etransitivity; [eapply rewr_unfold; done | idtac]; rewrite /rct /=.
+    Ltac unfold_bind1 n midn midty :=
+    match goal with
+    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x => mbind ?m ?k)) :: ?rs) _] =>
+      etransitivity; [
+        refine (@rewr_ext _ _ _ _ (ns, _, to) (fun x => mbind m k) (@rbind _ _ _ ns (midn, midty) to (fun x => m) _) _); done | idtac]
+    end;
+    rewrite rewr_unfold; [idtac | done | done]; rewrite /rct /=.
+
+    Ltac unfold_bind2 n midn midty :=
+    match goal with
+    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y => mbind ?m ?k)) :: ?rs) _] =>
+      etransitivity; [
+        refine (@rewr_ext _ _ _ _ (ns, _, to) (fun x y => mbind m k) (@rbind _ _ _ ns (midn, midty) to (fun x y => m) _) _); done | idtac]
+    end;
+    rewrite rewr_unfold; [idtac | done | done]; rewrite /rct /=.
+
+
+    Ltac unfold_bind3 n midn midty :=
+    match goal with
+    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y z => mbind ?m ?k)) :: ?rs) _] =>
+      etransitivity; [
+        refine (@rewr_ext _ _ _ _ (ns, _, to) (fun x y z => mbind m k) (@rbind _ _ _ ns (midn, midty) to (fun x y z => m) _) _); done | idtac]
+    end;
+    rewrite rewr_unfold; [idtac | done | done]; rewrite /rct /=.
+
+    Ltac unfold_bind n midn midty :=
+    r_move n 0%N;
+    match goal with
+    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) _) :: _) _] =>
+      match ns with
+        | nil => unfold_bind0 n midn midty
+        | _ :: nil => unfold_bind1 n midn midty
+        | _ :: _ :: nil => unfold_bind2 n midn midty
+        | _ :: _ :: _ :: nil => unfold_bind3 n midn midty
+      end
+        end.
+
+      
 
 
     (* remove redundant 'm' *)
@@ -552,6 +603,30 @@ Ltac get_args1 :=
       r_move m 0%N;
       etransitivity; [apply (rewr_remove _ _); done | idtac]; simpl.
 
+    Ltac r_clean :=
+      match goal with
+      | [ |- @r_rewr _ _ _ ?rs _ ] =>
+        let p := eval compute in (ofind_val (RHiddens rs) (fun n => n \notin RArgs _ _ rs) ) in
+            match p with
+              | Some ?n => r_remove n
+              | _ => fail "no more to clean"
+            end
+              end.
+
+    Ltac r_align_rec rs c :=
+      match rs with
+        | nil => idtac
+        | ?r :: ?rs' =>
+          r_move (chan_of r) c;
+          r_align_rec rs' (S c)
+                      end.
+
+    Ltac r_align :=
+      match goal with
+      | [ |- @r_rewr _ _ _ _ ?rs] => r_align_rec rs 0%N
+                                                 end.
+        
+                  
 
   (* TODO: fold *)
 

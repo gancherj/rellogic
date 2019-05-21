@@ -172,8 +172,68 @@ Section RPS.
     rewrite /rlist_comp_hide.
     vm_compute RChans; rewrite //=.
 
+    simpl.
     r_weakstr "committedA" "comA".
     r_weakstr "committedB" "comB".
+    r_str_inp "committedA" "inA".
+    r_str_inp "committedB" "inB".
+    r_move "openA" 0; arg_focus "committedB".
+    r_str "openA" "committedB".
+    r_move "openB" 0; arg_focus "committedA".
+    r_str "openB" "committedA".
+    repeat r_clean.
+    r_subst "comA" "openA".
+    r_str "openA" "comA".
+    r_str_inp "openA" "inA".
+    r_str "valA" "openA".
+
+    r_subst "comB" "openB".
+    r_str "openB" "comB".
+    r_str_inp "openB" "inB".
+    r_str "valB" "openB".
+    repeat r_clean.
+
+    r_subst "valB" "outA".
+    r_str "outA" "valB".
+    r_subst "valA" "outB".
+    r_str "outB" "valA".
+    r_clean.
+
+    r_clean.
+    r_move "valA" 0.
+    r_remove "valA".
+
+
+
+    rewrite !lift_det1.
+    r_weak "openA" "comA".
+    rewrite !lift_det1.
+    arg_focus "comA".
+    rewrite !lift_det1.
+    r_subst "comA" "openA".
+    r_move 3 0.
+    r_move 4 0.
+    r_clean.
+    r_clean.
+
+      match goal with
+      | [ |- @r_rewr _ _ _ ?rs _ ] =>
+        let p := eval compute in (ofind (RChans rs) (fun n => n \notin RArgs _ _ rs) ) in
+            match p with
+              | Some ?n => r_remove n
+              | _ => idtac
+            end
+              end.
+    find_unused.
+    r_
+
+    r_str "
+
+
+    r_move "inB" 1.
+    rewrite rewr_str_inp.
+    Check rewr_str_inp.
+
     r_weak "valA" "comA".
     r_move "comA" 0%N.
     rewrite !lift_det1.

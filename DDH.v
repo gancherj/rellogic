@@ -87,7 +87,7 @@ Definition ddh1 : rl :=
   Definition pke1 : rl :=
     [:: [::] ~> ("tup", tyPair (tyPair tyG tyG) tyG) hid ((x <- munif [finType of 'Z_q];
                                                              y <- munif [finType of 'Z_q]; ret ((g ^+ x)%g, (g ^+ y)%g, (g ^+ (x * y))%g)));
-       [:: ("tup", tyPair (tyPair tyG tyG) tyG)] ~> ("pk", tyG) dvis [ffun x => x.1.1];
+       [:: ("tup", tyPair (tyPair tyG tyG) tyG)] ~> ("pk", tyG) dvis (fun x => x.1.1);
        inr "m"%string;
        [:: ("tup", tyPair (tyPair tyG tyG) tyG); ("m", tyZq)] ~> ("c", tyPair tyG tyG) dvis
                                                               (fun t y => (t.1.2, t.2 * (g ^+ y))%g)
@@ -98,9 +98,74 @@ Definition ddh1 : rl :=
 
   Arguments rbind [N T H ].
   
-
   Lemma p1 : r_rewr pke pke1.
     rewrite /pke /pke1.
+    r_subst "pk" "c".
+    r_str "c" "pk".
+
+    unfold_bind "x" "t" tyZq.
+    r_subst "x" "pk".
+    r_str "pk" "x".
+
+    r_subst "x" "c".
+    r_str "c" "x".
+    r_clean.
+    r_ext (fun x x0 x1 =>
+             z <- ret (g ^+ (x * x0))%g; ret ((g ^+ x0)%g, z * g ^+ x1)%g).
+        intros; msimp; done.
+    simpl.
+    unfold_bind "c" "tmp" tyG.
+
+
+
+    unfold_bind3 "c" "tmp" tyG.
+    simpl.
+
+
+    r_subst "x" "c".
+    r_str "c" "x".
+    r_clean.
+
+
+    r_rename "t" "x".
+    r_str "c" "pk".
+
+    rewrite 
+     
+    
+    Check lift_bind.
+
+    lift_bind0 "x" "t" tyZq.
+
+
+
+      
+    etransitivity.
+    apply rewr_ext.
+    set Goal0 := 3.
+    instantiate (1 := (rbind nil ("t", tyZq) ("x", tyZq) (munif [finType of 'Z_q]) (fun x => ret x))).
+    simpl.
+    done.
+
+    apply lift_bind.
+    apply: lift_bind.
+    
+
+    Ltac lift_bind0 m n t :=
+      r_move m 0%N;
+      etransitivity; [ apply rewr_ext; 
+    match goal with
+    | [ |- React_eq _ _ _ (_, _, ?to).2 (mbind ?m ?k) _] => apply: (@lift_bind t _ m k n)
+                                                                                          end | idtac].
+
+    lift_bind0 "x" "t" tyZq.
+                                                                                                       end.
+    lift_bind1 "x" "t" tyZq.
+    etransitivity.
+    apply rewr_ext.
+
+    lift_bind1 "x" "t" tyZq.
+    r_unfold1 tyZq "t".
     rewrite bind_ret.
     simpl.
     r_move "y" 1.
