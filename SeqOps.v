@@ -241,3 +241,63 @@ Lemma Perm_mem {A : eqType} (xs ys : seq A) :
   intros.
   rewrite -IHX2 //=.
 Qed.
+
+Fixpoint ofind {A} (xs : seq A) (f : A -> bool) : option nat :=
+  match xs with
+    | nil => None
+    | x :: xs' =>
+      if f x then Some 0%N else
+        match ofind xs' f with
+          | Some n => Some (S n)
+          | None => None
+        end
+          end.
+
+Fixpoint ofind_val {A} (xs : seq A) (f : A -> bool) : option A :=
+  match xs with
+    | nil => None
+    | x :: xs' =>
+      if f x then Some x else
+        match ofind_val xs' f with
+          | Some x => Some x
+          | None => None
+        end
+          end.
+
+Fixpoint prefix {A : eqType} (xs ys : seq A) : bool :=
+  match xs with
+    | nil => true
+    | x :: xs' =>
+      match ys with
+      | nil => false
+      | y :: ys' =>
+        if x == y then prefix xs' ys' else false
+      end
+        end.
+                      
+Lemma prefixP {A : eqType} (xs ys : seq A) : prefix xs ys -> {zs | ys = xs ++ zs}.
+  move: ys.
+  induction xs.
+  simpl.
+  intros; exists ys; done.
+  induction ys.
+  done.
+  simpl.
+  destruct (eqVneq a a0).
+  subst.
+  rewrite eq_refl.
+  intro h; destruct (IHxs _ h).
+  subst.
+  exists x.
+  done.
+  rewrite (negbTE i).
+  done.
+Defined.
+
+Lemma prefix_cat {A : eqType} (xs ys : seq A) : prefix xs (xs ++ ys).
+  induction xs.
+  done.
+  simpl.
+  rewrite eq_refl.
+  done.
+Defined.

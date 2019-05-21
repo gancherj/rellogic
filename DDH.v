@@ -96,17 +96,189 @@ Definition ddh1 : rl :=
     Close Scope posrat_scope.
     Open Scope nat_scope.
 
+  Arguments rbind [N T H ].
+  
+
   Lemma p1 : r_rewr pke pke1.
     rewrite /pke /pke1.
     rewrite bind_ret.
-    r_swap 2 1.
+    simpl.
+    r_move "y" 1.
     r_prod "tmp".
     r_swap 1 0.
+    r_ext (fun a : 'Z_q * 'Z_q => (x <- ret a.1; ret x)).
+    intros; msimp.
+    done.
+    r_unfold1 tyZq "t".
+    r_swap 1 0.
+    rct_swap 1 0.
+    r_swap 2 1.
+    r_str.
+
+    r_swap 
+    r_swap 2 1.
+    r_swap 
+    etransitivity.
+    apply rewr_ext.
+    Check lift_bind1.
+
+    apply: (@lift_bind1 _ _ _ ("tmp", tyPair tyZq tyZq) tyZq ("x", tyZq) _ _ "t").
+    apply 
+    r_unfold1 tyZq "t".
+    etransitivity.
+    apply rewr_ext.
+    lift_bind1 tyZq "t".
+    r_unfold1 tyZq "t".
+    simpl.
+    r_at 1 ltac:(rct_swap 1 0).
+    r_swap 1 0.
+    Check rewr_str.
+    r_swap 2 1.
+    r_str.
+
+    rewrite rewr_str; last first.
+    done.
+    simpl.
+    simpl.
+    admit.
+    simpl.
+    simpl.
+
+    admit.
+
+    
+    rewrite rewr_str; last first.
+    done.
+    last 
+    Check rewr_str.
+    Check r_str.
+    r_str.
+    r_at 1 ltac:(r_str).
+
+    simpl.
+    rewrite /rct.
+    lift_bind1 tyZq "t".
+    r_unfold.
+    simpl.
+
+    etransitivity.
+    eapply rewr_unfold.
+    done.
+    done.
+
+    etransitivity; [apply rewr_ext; lift_bind1 tyZq "t" | idtac].
+    etransitivity.
+    apply rewr_ext.
+    lift_bind1 tyZq "t".
+    match goal with
+    | [ |- React_eq _ _ (?from :: nil, _, _).1.1 ?to (fun arg => mbind ?m ?k) _] => apply (@lift_bind1 from _ to "t" _ _)
+
+     (* apply (@lift_bind1 from tyZq to "t" _ _)*)
+                                                                   end.
+
+    apply (@lift_bind1 ("tmp", tyPair tyZq tyZq) tyZq ("x", tyZq) "t" _ _) => h.
+    simpl.
+    
+    simpl.
+    apply h.
+    eapply (@lift_bind1 _ _ ).
+    Check lift_bind1.
+    simpl.
+    eapply (lift_bind1 _ _ _).
+    instantiate (1 := rbind _ ("t", tyZq) ("x", tyZq) (fun a : 'Z_q * 'Z_q => _) _).
+    simpl.
+    Show Existentials.
+    intro.
+    instantiate (3 := (fun x : 'Z_q * 'Z_q => ret x.1)).
+    Unshelve.
+    r_ext (rbind (fun a : 'Z_q * 'Z_q => ret a.1) (fun a : 'Z_q => fun _ => ret a)).
+    etransitivity.
+    apply rewr_ext.
+    
+    apply lift_bind1.
+    h
+    
+    Check lift_bind1.
+    eapply (lift_bind1 _ _ (tyZq, "t")).
+    eapply lift_bind1.
+
+    erewrite lift_bind1.
+    Check reaction_bind.
+    rewrite 
+    intros; try msimp.
+
+    rewrite /React_eq; simpl.
+    etransitivity.
+    apply rewr_ext.
+    instantiate (1 := (fun a => ret a.1)).
+
+    kk
+    Check rewr_ext.
+    match goal with
+    | [ |- r_rewr (inl (existT _ ?p _) :: _) _] => eapply (rewr_ext _ _ _ p _ (fun a => ret a.1))
+                                                  end.
+    apply (rewr_ext _ _ _ _ _ (fun a => _)).
+    instantiate (1 := (fun a => ret a.1)).
+    inst
     r_swap 3 1.
     rewrite lift_det1.
     r_weak "tmp" (tyPair tyZq tyZq).
     r_at 1 ltac:(rct_swap 1 0).
     r_subst.
+    r_swap 1 0; r_str.
+    rewrite !lift_det1.
+    r_
+
+    r_str.
+    r_str_inv.
+    r_swap 4 1.
+    r_str_inv.
+    etransitivity; [
+    match goal with 
+    | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
+                                                                end | idtac].
+
+    apply (rewr_str_inv _ _ ("x", tyZq)); done.
+    done.
+    done.
+    done.
+    eapply rewr_str_inv.
+    erewrite rewr_str_inv.
+    admit.
+    done.
+    simpl.
+    done.
+    instantiate (1 := ("x", tyZq)).
+    done.
+    etransitivity.
+    Check rewr_str_inv.
+    erewrite rewr_str_inv.
+    etransitivity; [apply rewr_str; done | idtac].
+    rewrite rewr_str; [idtac | done | done].
+
+    etransitivity.
+    eapply rewr_str.
+    simpl.
+    done.
+    done.
+
+    eapply rewr_str.
+    Check
+    r_rename "ldjf" "tup".
+    etransitivity; [apply (rewr_rename _ _ _ "tmp" "tup"); done | idtac]; simpl.
+    Check (rewr_rename _ _ _ "tmp" "tup").
+    rewrite (rewr_rename _ _ _ "tmp" "tup").
+
+    r_rename "tmp" "tup".
+    etransitivity.
+    apply (rewr_rename _ _ _ "tmp" "tup").
+    done.
+    simpl.
+
+    simpl.
+    
+    Qed.
+
     r_at 1 ltac:(r_str).
     r_swap 1 0.
     r_swap 5 1.
