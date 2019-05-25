@@ -78,7 +78,7 @@ Definition ddh1 : rl :=
          z <- munif [finType of 'Z_q];
          ret (exp x, exp y, exp z))].
 
-Definition eg0 : rl :=
+Definition ElGamal_real : rl :=
     [:: [::] ~> ("x", tyZq) hid (x <- munif [finType of 'Z_q]; ret x);
        [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x  => (exp x)%g);
        inr "m";
@@ -86,6 +86,14 @@ Definition eg0 : rl :=
        [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis
                                                                (fun x y pk m => (exp y, (exp (Zp_mul x y)) * m))%fcg
                                                                ].
+Definition ElGamal_ideal : rl :=
+  [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
+     [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
+    [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
+    [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
+    inr "m";
+    [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
+                                                                               (exp y, (exp z))%g)].
 
 Definition eg1 : rl :=
   [:: [::] ~> ("samp", tyPair (tyPair tyG tyG) tyG) hid (x <- munif [finType of 'Z_q]; y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y))%fcg);
@@ -120,7 +128,8 @@ Definition eg2 : rl :=
 
   Arguments rbind [N T H ].
   
-Lemma eg_step1 : r_rewr eg0 eg1.
+Lemma eg_step1 : r_rewr ElGamal_real eg1.
+  rewrite /ElGamal_real.
     admit.
 Admitted.
 
@@ -163,16 +172,8 @@ Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   reflexivity.
 Qed.
 
-Definition eg3 : rl :=
-  [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
-     [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
-    [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
-    [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
-    inr "m";
-    [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
-                                                                               (exp y, (exp z))%g)].
 
-Lemma eg_step3 : r_rewr eg2 eg3.
+Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
   rewrite /eg2.
   simpl.
   r_move "z" 0.
@@ -204,13 +205,31 @@ Lemma eg_step3 : r_rewr eg2 eg3.
   rewrite Zp_addNz Zp_addC Zp_add0z //=.
  r_clean.
  r_rename "t" "z".
- rewrite /eg3.
  arg_focus "y".
  arg_move "pk" "m".
  r_move "z" 0.
  r_move "m" 1.
  rewrite rewr_str_inp.
+ rewrite /ElGamal_ideal.
+ simpl.
  r_align.
  reflexivity.
 Qed.
 
+Lemma ElGamal_secure: r_rewr ddh0 ddh1 -> r_rewr ElGamal_real ElGamal_ideal.
+  intro.
+  etransitivity.
+  apply eg_step1.
+  etransitivity.
+  apply eg_factor_eq.
+  etransitivity.
+  instantiate (1 := eg1_factor ||| ddh1).
+  (* TODO: congr rule *)
+  admit.
+  etransitivity.
+  apply eg_step2.
+  apply eg_step3.
+Admitted.
+  
+
+  
