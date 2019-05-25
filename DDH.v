@@ -6,9 +6,10 @@ From mathcomp Require Import cyclic zmodp.
 
 Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps.
 
+Require Import FCG.
+
 Section DDH.
-  Context (G : finGroupType) (g : G).
-  Definition q := order g.
+  Context (G : finType) `{FinCyclicGroup G}.
 
   Inductive ty :=
   | tyUnit
@@ -40,11 +41,13 @@ Section DDH.
   Canonical ty_eq := EqType ty (CanEqMixin ty_can).
   Canonical ty_ch := ChoiceType ty (CanChoiceMixin ty_can).
 
+Definition q := order.
+
   Fixpoint denomTy (t : ty) : finType :=
     match t with
       | tyUnit => [finType of unit]
       | tyZq => [finType of 'Z_q]
-      | tyG => [finType of G]
+      | tyG => G
       | tyPair t1 t2 => [finType of (denomTy t1) * (denomTy t2)]
                           end.
 
@@ -61,457 +64,153 @@ Section DDH.
 
   Open Scope string_scope.
 
+
 Definition ddh0 : rl :=
-[:: [::] ~> ("out", tyPair (tyPair tyG tyG) tyG)
+[:: [::] ~> ("samp", tyPair (tyPair tyG tyG) tyG)
     vis (x <- munif [finType of 'Z_q];
-         y <- munif [finType of 'Z_q]; ret ((g ^+ x)%g, (g ^+ y)%g, (g ^+ (x * y))%g))].
+         y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y)))].
 
 Definition ddh1 : rl :=
-[:: [::] ~> ("out",
+[:: [::] ~> ("samp",
  tyPair (tyPair tyG tyG) tyG)
     vis (x <- munif [finType of 'Z_q];
          y <- munif [finType of 'Z_q];
          z <- munif [finType of 'Z_q];
-         ret ((g ^+ x)%g, (g ^+ y)%g, (g ^+ z)%g))].
+         ret (exp x, exp y, exp z))].
 
-  Definition pke : rl :=
+Definition eg0 : rl :=
     [:: [::] ~> ("x", tyZq) hid (x <- munif [finType of 'Z_q]; ret x);
-       [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x  => (g ^+ x)%g);
-       [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
+       [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x  => (exp x)%g);
        inr "m";
-       [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyZq)] ~> ("c", tyPair tyG tyG) dvis
-                                                               (fun x y pk m => (g ^+ y, g ^+ (x * y) * g ^+ m))%g
+       [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
+       [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis
+                                                               (fun x y pk m => (exp y, (exp (Zp_mul x y)) * m))%fcg
                                                                ].
 
+Definition eg1 : rl :=
+  [:: [::] ~> ("samp", tyPair (tyPair tyG tyG) tyG) hid (x <- munif [finType of 'Z_q]; y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y))%fcg);
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
+     inr "m";
+     [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
+     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
 
-  Definition pke1 : rl :=
-    [:: [::] ~> ("tup", tyPair (tyPair tyG tyG) tyG) hid ((x <- munif [finType of 'Z_q];
-                                                             y <- munif [finType of 'Z_q]; ret ((g ^+ x)%g, (g ^+ y)%g, (g ^+ (x * y))%g)));
-       [:: ("tup", tyPair (tyPair tyG tyG) tyG)] ~> ("pk", tyG) dvis (fun x => x.1.1);
-       inr "m"%string;
-       [:: ("tup", tyPair (tyPair tyG tyG) tyG); ("m", tyZq)] ~> ("c", tyPair tyG tyG) dvis
-                                                              (fun t y => (t.1.2, t.2 * (g ^+ y))%g)
-                                                              ].
+Definition eg1_factor : rl :=
+  [:: inr "samp"; 
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
+     [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
+     inr "m";
+     [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
+     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
+
+Definition eg2 : rl :=
+  [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
+     [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
+    [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
+    [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
+    inr "m";
+    [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
+                                                                               (exp y, (exp z) * m)%fcg)].
+
 
     Close Scope posrat_scope.
     Open Scope nat_scope.
 
   Arguments rbind [N T H ].
   
-  Lemma p1 : r_rewr pke pke1.
-    rewrite /pke /pke1.
-    r_subst "pk" "c".
-    r_str "c" "pk".
-
-    unfold_bind "x" "t" tyZq.
-    r_subst "x" "pk".
-    r_str "pk" "x".
-
-    r_subst "x" "c".
-    r_str "c" "x".
-    r_clean.
-    r_ext (fun x x0 x1 =>
-             z <- ret (g ^+ (x * x0))%g; ret ((g ^+ x0)%g, z * g ^+ x1)%g).
-        intros; msimp; done.
-    simpl.
-    unfold_bind "c" "tmp" tyG.
-
-
-
-    unfold_bind3 "c" "tmp" tyG.
-    simpl.
-
-
-    r_subst "x" "c".
-    r_str "c" "x".
-    r_clean.
-
-
-    r_rename "t" "x".
-    r_str "c" "pk".
-
-    rewrite 
-     
-    
-    Check lift_bind.
-
-    lift_bind0 "x" "t" tyZq.
-
-
-
-      
-    etransitivity.
-    apply rewr_ext.
-    set Goal0 := 3.
-    instantiate (1 := (rbind nil ("t", tyZq) ("x", tyZq) (munif [finType of 'Z_q]) (fun x => ret x))).
-    simpl.
-    done.
-
-    apply lift_bind.
-    apply: lift_bind.
-    
-
-    Ltac lift_bind0 m n t :=
-      r_move m 0%N;
-      etransitivity; [ apply rewr_ext; 
-    match goal with
-    | [ |- React_eq _ _ _ (_, _, ?to).2 (mbind ?m ?k) _] => apply: (@lift_bind t _ m k n)
-                                                                                          end | idtac].
-
-    lift_bind0 "x" "t" tyZq.
-                                                                                                       end.
-    lift_bind1 "x" "t" tyZq.
-    etransitivity.
-    apply rewr_ext.
-
-    lift_bind1 "x" "t" tyZq.
-    r_unfold1 tyZq "t".
-    rewrite bind_ret.
-    simpl.
-    r_move "y" 1.
-    r_prod "tmp".
-    r_swap 1 0.
-    r_ext (fun a : 'Z_q * 'Z_q => (x <- ret a.1; ret x)).
-    intros; msimp.
-    done.
-    r_unfold1 tyZq "t".
-    r_swap 1 0.
-    rct_swap 1 0.
-    r_swap 2 1.
-    r_str.
-
-    r_swap 
-    r_swap 2 1.
-    r_swap 
-    etransitivity.
-    apply rewr_ext.
-    Check lift_bind1.
-
-    apply: (@lift_bind1 _ _ _ ("tmp", tyPair tyZq tyZq) tyZq ("x", tyZq) _ _ "t").
-    apply 
-    r_unfold1 tyZq "t".
-    etransitivity.
-    apply rewr_ext.
-    lift_bind1 tyZq "t".
-    r_unfold1 tyZq "t".
-    simpl.
-    r_at 1 ltac:(rct_swap 1 0).
-    r_swap 1 0.
-    Check rewr_str.
-    r_swap 2 1.
-    r_str.
-
-    rewrite rewr_str; last first.
-    done.
-    simpl.
-    simpl.
+Lemma eg_step1 : r_rewr eg0 eg1.
     admit.
-    simpl.
-    simpl.
+Admitted.
 
-    admit.
+Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
+  r_move 0 6.
+  apply rewr_refl.
+Qed.
 
-    
-    rewrite rewr_str; last first.
+Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
+  r_move 6 0.
+  unfold_bind0 "samp" "x" tyZq.
+  r_move "samp" 0.
+  unfold_bind1 "samp" "y" tyZq.
+  r_move "samp" 0.
+  unfold_bind2 "samp" "z" tyZq.
+  r_subst "samp" "X".
+  r_str "X" "samp".
+  r_str "X" "z".
+  r_str "X" "y".
+  r_subst "X" "pk".
+  r_str "pk" "X".
+  r_clean.
+  r_str "y" "x".
+  r_str "z" "x".
+  r_str "z" "y".
+  r_subst "Y" "c".
+  r_subst "Z" "c".
+  r_str "c" "Z".
+  r_str "c" "Y".
+  rewrite !lift_det3.
+  r_subst "samp" "c".
+  r_str "c" "samp".
+  r_clean.
+  r_clean.
+  r_clean.
+  rewrite /eg2.
+  r_str "c" "x".
+  arg_focus "y".
+  r_align.
+  reflexivity.
+Qed.
+
+Definition eg3 : rl :=
+  [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
+     [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
+    [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
+    [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
+    inr "m";
+    [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
+                                                                               (exp y, (exp z))%g)].
+
+Lemma eg_step3 : r_rewr eg2 eg3.
+  rewrite /eg2.
+  simpl.
+  r_move "z" 0.
+  r_move "m" 1.
+  rewrite rewr_str_inp_inv.
+  instantiate (1 := tyG).
+  simpl.
+  r_ext "z" (fun m => (x <- munif [finType of 'Z_q]; ret (Zp_add x (Zp_opp (log m))))).
+    intro m.
+    rewrite -munif_bij.
     done.
-    last 
-    Check rewr_str.
-    Check r_str.
-    r_str.
-    r_at 1 ltac:(r_str).
+    generalize (log m) => y.
+    exists (fun x => Zp_add x y).
+    move => x.
+    rewrite -Zp_addA.
+    rewrite Zp_addNz Zp_addC Zp_add0z //=.
+    move => x.
+    rewrite -Zp_addA.
+    rewrite (Zp_addC y) Zp_addNz Zp_addC Zp_add0z //=.
+  unfold_bind1 "z" "t" tyZq.
+  r_subst "z" "c".
+  r_str "c" "z".
+  r_ext "c" (fun (x : 'Z_q) (x0 : G) (x1 : 'Z_q) (g : G) =>
+           ret (exp x1, exp x)).
+  intros.
+  rewrite -{2}(log_exp x0).
+  rewrite -Hop.
+  rewrite -Zp_addA.
+  rewrite Zp_addNz Zp_addC Zp_add0z //=.
+ r_clean.
+ r_rename "t" "z".
+ rewrite /eg3.
+ arg_focus "y".
+ arg_move "pk" "m".
+ r_move "z" 0.
+ r_move "m" 1.
+ rewrite rewr_str_inp.
+ r_align.
+ reflexivity.
+Qed.
 
-    simpl.
-    rewrite /rct.
-    lift_bind1 tyZq "t".
-    r_unfold.
-    simpl.
-
-    etransitivity.
-    eapply rewr_unfold.
-    done.
-    done.
-
-    etransitivity; [apply rewr_ext; lift_bind1 tyZq "t" | idtac].
-    etransitivity.
-    apply rewr_ext.
-    lift_bind1 tyZq "t".
-    match goal with
-    | [ |- React_eq _ _ (?from :: nil, _, _).1.1 ?to (fun arg => mbind ?m ?k) _] => apply (@lift_bind1 from _ to "t" _ _)
-
-     (* apply (@lift_bind1 from tyZq to "t" _ _)*)
-                                                                   end.
-
-    apply (@lift_bind1 ("tmp", tyPair tyZq tyZq) tyZq ("x", tyZq) "t" _ _) => h.
-    simpl.
-    
-    simpl.
-    apply h.
-    eapply (@lift_bind1 _ _ ).
-    Check lift_bind1.
-    simpl.
-    eapply (lift_bind1 _ _ _).
-    instantiate (1 := rbind _ ("t", tyZq) ("x", tyZq) (fun a : 'Z_q * 'Z_q => _) _).
-    simpl.
-    Show Existentials.
-    intro.
-    instantiate (3 := (fun x : 'Z_q * 'Z_q => ret x.1)).
-    Unshelve.
-    r_ext (rbind (fun a : 'Z_q * 'Z_q => ret a.1) (fun a : 'Z_q => fun _ => ret a)).
-    etransitivity.
-    apply rewr_ext.
-    
-    apply lift_bind1.
-    h
-    
-    Check lift_bind1.
-    eapply (lift_bind1 _ _ (tyZq, "t")).
-    eapply lift_bind1.
-
-    erewrite lift_bind1.
-    Check reaction_bind.
-    rewrite 
-    intros; try msimp.
-
-    rewrite /React_eq; simpl.
-    etransitivity.
-    apply rewr_ext.
-    instantiate (1 := (fun a => ret a.1)).
-
-    kk
-    Check rewr_ext.
-    match goal with
-    | [ |- r_rewr (inl (existT _ ?p _) :: _) _] => eapply (rewr_ext _ _ _ p _ (fun a => ret a.1))
-                                                  end.
-    apply (rewr_ext _ _ _ _ _ (fun a => _)).
-    instantiate (1 := (fun a => ret a.1)).
-    inst
-    r_swap 3 1.
-    rewrite lift_det1.
-    r_weak "tmp" (tyPair tyZq tyZq).
-    r_at 1 ltac:(rct_swap 1 0).
-    r_subst.
-    r_swap 1 0; r_str.
-    rewrite !lift_det1.
-    r_
-
-    r_str.
-    r_str_inv.
-    r_swap 4 1.
-    r_str_inv.
-    etransitivity; [
-    match goal with 
-    | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
-                                                                end | idtac].
-
-    apply (rewr_str_inv _ _ ("x", tyZq)); done.
-    done.
-    done.
-    done.
-    eapply rewr_str_inv.
-    erewrite rewr_str_inv.
-    admit.
-    done.
-    simpl.
-    done.
-    instantiate (1 := ("x", tyZq)).
-    done.
-    etransitivity.
-    Check rewr_str_inv.
-    erewrite rewr_str_inv.
-    etransitivity; [apply rewr_str; done | idtac].
-    rewrite rewr_str; [idtac | done | done].
-
-    etransitivity.
-    eapply rewr_str.
-    simpl.
-    done.
-    done.
-
-    eapply rewr_str.
-    Check
-    r_rename "ldjf" "tup".
-    etransitivity; [apply (rewr_rename _ _ _ "tmp" "tup"); done | idtac]; simpl.
-    Check (rewr_rename _ _ _ "tmp" "tup").
-    rewrite (rewr_rename _ _ _ "tmp" "tup").
-
-    r_rename "tmp" "tup".
-    etransitivity.
-    apply (rewr_rename _ _ _ "tmp" "tup").
-    done.
-    simpl.
-
-    simpl.
-    
-    Qed.
-
-    r_at 1 ltac:(r_str).
-    r_swap 1 0.
-    r_swap 5 1.
-    r_weak "tmp" (tyPair tyZq tyZq).
-    r_swap 1 0.
-
-
-
-    r_swap 1 0.
-    r_str.
-    rewrite rewr_str /rct /=.
-    rewrite rewr_subst.
-    rewrite /rct /=.
-    simpl.
-    admit.
-    done.
-    simpl.
-    rewrite /reaction_dep //=.
-    simpl.
-    rewrite (rewr_weak _ _ ("tmp", tyPair tyZq tyZq)).
-    simpl.
-    instantiate (1 := ("tmp", tyPair tyZq tyZq)).
-    simpl.
-    etransitivity.
-
-    eapply rewr_subst.
-
-    admit.
-    done.
-    simpl.
-
-    simpl.
-    etransitivity.
-
-
-    soi
-    simpl.
-
-
-    Check rewr_subst.
-    eapply (rewr_subst _ _ _ _ _ _ _ _ _ _).
-    rewrite rewr_subst1.
-    Check rewr_subst.
-    have : [:: ("tmp", _) ~> ("x", tyZq) hid _] = drct [:: ("tmp", tyPair tyZq tyZq)] ("x", tyZq) false (fun a : 'Z_q * 'Z_q => ret a.1).
-    rewrite rewr_subst.
-
-    r_swap 2 1.
-    r_swap 2 0.
-    r_swap 4 1.
-    r_swap 1 0.
-    rct_swap 2 0.
-    r_swap 1 0.
-    rewrite rewr_subst.
-
-    r_prod "tmp".
-
-    r_swap 2 1.
-    Check rewr_subst.
-
-
-
-    Check rewr_trans.
-    apply (rewr_trans _ _ _ _ _ ).
-    etransitivity.
-    apply (rewr_prod _ _ "tmp" _ _ _ _ erefl). 
-    done.
-    instantiate (1 := erefl).
-
-    instantiate (1 := "tmp").
-    done.
-    instantiate (1 := erefl).
-    simpl.
-
-    rewrite /rct.
-    rewrite /drct.
-    simpl.
-    simpl.
-
-
-    r_swap 1%N 0%N.
-    r_swap 4%N 0%N.
-
-    rct_swap 1%N 0%N.
-
-    r_swap 3%N 0%N.
-
-
-    etransitivity.
-    apply (rewr_r_perm _ _ _ _ (Perm_swap 1%N 0%N _)).
-    simpl.
-    rewrite /swap //=.
-    rewrite /Reaction_Perm.
-    simpl.
-    rewrite /Perm_swap.
-    simpl.
-    rewrite /catA.
-
-    apply (rewr_rperm_app _ _ _ _ _ _ (Perm_rot 3 _)).
-    simpl.
-    apply rewr_r_perm.
-    Chec
-    Check Perm_rot.
-    instantiate (1 := Perm_rot 3).
-    eapply rewr_r_perm.
-    Check rewr_perm_r.
-    have: Perm [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyZq)]
-               [:: ("pk", tyG); ("x", tyZq); ("y", tyZq); ("m", tyZq)].
-
-    Check rewr_r_perm.
-    r_swap 2
-    Check rewr_subst.
-
-    etransitivity.
-    apply rewr_prod.
-    instantiate (1 := "tmp").
-    done.
-    instantiate (1 := erefl).
-    simpl.
-
-    eapply r_rewr_r.
-
-    eapply rewr_fold.
-    done.
-    done.
-
-    rewrite /reaction_bind.
-    simpl.
-    rewrite !measE.
-    simpl.
-
-    Check rewr_subst.
-
-    Check rewr_prod.
-
-    done.
-    simpl.
-    simpl.
-    simpl.
-
-    
-    apply perm_cons.
-
-    etransitivity; apply rewr_perm; first by apply perm_swap.
-
-    etransitivity.
-    apply rewr_perm.
-    apply perm_skip.
-    apply perm_swap.
-    Check perm_swap.
-    eapply rewr_ext.
-    instantiate (1 := (rct [::] ("x", tyZq) false 
-    simpl.
-    eapp
-    rewrite ret_bind.
- jkkkkkkkkkkkkkkkk   etransitivity.
-
-
-
-  Check
-  Check (rlist string ty).
-  Definition 
-
-  Check [finType of 'Z_q].
-  Check rlist.
-  Definition ddh0
-  Check 
-  Check (fun i => g ^+ i)%g.
-  Check commute.
-  Check cyclic.
-  Check cyclicGroupType.
-Check cyclic.

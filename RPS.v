@@ -163,7 +163,46 @@ Section RPS.
   Lemma ideal_rewr : r_rewr rps_simp rpsIdeal.
     rewrite /rpsIdeal /rps_simp.
     simpl.
+    r_ext "outB" (fun y x => t <- ret (rps_comp x y); ret (ans_flip t)).
+    intros; msimp.
+      by destruct x; destruct x0.
+    unfold_bind "outB" "comp" tyAns.
+    r_str_inv "outA" "comp".
+    r_move 1 0; arg_focus "inB"; r_move 0 1.
+    rewrite !lift_det2.
+    etransitivity.
+    apply rewr_ext.
+    Check (@detReaction_subst _ _ _ [:: ("inB", tyPlay); ("inA", tyPlay)] [:: ("inB", tyPlay); ("inA", tyPlay)] ("comp", tyAns) ("outA", tyAns) (fun y x => rps_comp y x) (fun a y x => ret a) (exist _ _ erefl)).
+    instantiate (1 := (@detReaction_subst _ _ _ [:: ("inA", tyPlay); ("inB", tyPlay)] [:: ("inA", tyPlay); ("inB", tyPlay)] ("comp", tyAns) ("outA", tyAns) (fun y x => rps_comp y x) (fun a y x => ret a) (exist _ _ erefl))).
+    simpl.
+    intros; rewrite /eq_rect_r /=.
+    done.
+    erewrite rewr_perm; last first.
+    apply perm_swap.
+    rewrite rewr_subst_inv.
+
+    simpl.
+    instantiate (1 := detReaction_subst (fun y x => rps_comp x y) _ _).
+
+    Check detReaction_subst.
+    erewrite rewr_ext; last first.
+    instantiate (1 := detReaction_subst 
+    have: exists z,
+        
+
+    rewrite rewr_subst_inv.
+    r
+    
+
+    Check r_
+    rewrite (rewr_dep _ _ _ _ ("comp", tyAns)); [idtac | idtac | done].
     admit.
+    last
+
+
+    r_d
+    r_move "outA" 0%N.
+    r_str_inv "outA" "comp".
   Admitted.
 
   Lemma real_rewr : r_rewr rpsReal rps_simp.
@@ -197,110 +236,18 @@ Section RPS.
     r_str "outA" "valB".
     r_subst "valA" "outB".
     r_str "outB" "valA".
-    r_clean.
+    repeat r_clean.
 
-    r_clean.
-    r_move "valA" 0.
-    r_remove "valA".
+    r_subst "comA" "outB".
+    r_str "outB" "comA".
 
-
-
-    rewrite !lift_det1.
-    r_weak "openA" "comA".
-    rewrite !lift_det1.
-    arg_focus "comA".
-    rewrite !lift_det1.
-    r_subst "comA" "openA".
-    r_move 3 0.
-    r_move 4 0.
-    r_clean.
-    r_clean.
-
-      match goal with
-      | [ |- @r_rewr _ _ _ ?rs _ ] =>
-        let p := eval compute in (ofind (RChans rs) (fun n => n \notin RArgs _ _ rs) ) in
-            match p with
-              | Some ?n => r_remove n
-              | _ => idtac
-            end
-              end.
-    find_unused.
-    r_
-
-    r_str "
-
-
-    r_move "inB" 1.
-    rewrite rewr_str_inp.
-    Check rewr_str_inp.
-
-    r_weak "valA" "comA".
-    r_move "comA" 0%N.
-    rewrite !lift_det1.
-    r_move 1 0.
-    arg_focus "comA".
-    r_move 0 1.
-    rewrite !lift_det1.
-    r_subst "comA" "valA".
-    r_str "valA" "comA".
-    r_weak "valA" "openA".
-    r_weak "valA" "openA".
-    r_str "valA" "openA".
-    r_weak "valA" "committedB".
-    r_str "valA" "committedB".
-    arg_focus "comA".
-    r_str "valA" "comA".
-    r_weak "openA" "comA".
-    r_str "openA" "comA".
-    r_remove "openA".
-
-    r_weak "valB" "comB".
-    r_move "comB" 0%N.
-    rewrite !lift_det1.
-    r_move 1 0.
-    arg_focus "comB".
-    r_move 0 1.
-    rewrite !lift_det1.
-    r_subst "comB" "valB".
-    r_str "valB" "comB".
-    r_weak "valB" "openB".
-    r_weak "valB" "openB".
-    r_str "valB" "openB".
-    r_weak "valB" "committedA".
-    r_str "valB" "committedA".
-    arg_focus "comB".
-    r_str "valB" "comB".
-    r_weak "openB" "comB".
-    r_str "openB" "comB".
-    r_remove "openB".
-    r_remove "committedA".
-    r_remove "committedB".
-    r_remove "comA".
-    r_remove "comB".
-    r_move "inA" 1.
-    rewrite rewr_str_inp.
-    r_move "valA" 0.
-    r_move "inB" 1.
-    rewrite rewr_str_inp.
-    r_move "outB" 0.
-    r_weak "outB" "valA".
-    arg_move 1 2.
-    rewrite !lift_det1.
-    arg_focus "valA".
-    r_subst "valA" "outB".
-    r_weak "outA" "valB".
-    arg_focus "valB".
-    rewrite !lift_det1.
-    r_subst "valB" "outA".
-    r_move "outA" 0; arg_focus "inB".
-    r_str "outA" "valB".
-    r_move "outB" 0; arg_focus "inA".
-    r_str "outB" "valA".
-    r_remove "valA".
-    r_remove "valB".
+    r_subst "comB" "outA".
+    r_str "outA" "comB".
+    repeat r_clean.
     rewrite /rps_simp.
+    simpl.
+    r_align.
     reflexivity.
   Qed.
 
-        
       

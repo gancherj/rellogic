@@ -278,10 +278,17 @@ Fixpoint ROutputs (r : rlist) : seq N:=
   | rewr_subst : forall (rs : rlist) ns ns' b1 b2 h f (r : detReaction ns h) (k : Reaction (h :: ns') f) (z : {zs | ns' = ns ++ zs}),
       r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b1, _) (lift_det _ _ r)) :: inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b2, _) k) :: rs)
              (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b1, _) (lift_det _ _ r)) :: inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b2, _) (detReaction_subst r k z)) :: rs)
-  (* TODO is the below ok? *)
+             (* TODO subst inv *)
+  | rewr_subst_inv : forall (rs : rlist) ns ns' b1 b2 h f (r : detReaction ns h) (k : Reaction (h :: ns') f) (z : {zs | ns' = ns ++ zs}),
+      r_rewr 
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b1, _) (lift_det _ _ r)) :: inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b2, _) (detReaction_subst r k z)) :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b1, _) (lift_det _ _ r)) :: inl (existT (fun ns => Reaction ns.1.1 ns.2) (_, b2, _) k) :: rs)
   | rewr_str_inp : forall (rs : rlist) (i : N) ns b f (k : Reaction ns f) t,
       r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) ((i, t) :: ns, b, _) (fun _ => k)) :: inr i :: rs)
              (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inr i :: rs)
+  | rewr_str_inp_inv : forall (rs : rlist) (i : N) ns b f (k : Reaction ns f) t,
+      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inr i :: rs)
+             (inl (existT (fun ns => Reaction ns.1.1 ns.2) ((i, t) :: ns, b, _) (fun _ => k)) :: inr i :: rs)
   | rewr_str : forall (rs : rlist) (r : reaction) ns b f (k : Reaction ns f) n,
       (all (fun x => x \in ns) (tag r).1.1) ->
       n = (tag r).2 ->
@@ -513,7 +520,7 @@ Ltac get_args1 :=
       ensure_arg_prefix ns 0%N;
       arg_focus x;
       r_move x 0%N;
-      rewrite ?lift_det1;
+      rewrite ?lift_det ?lift_det1 ?lift_det2;
       etransitivity; [ refine (rewr_subst _ _ _ _ _ _ _ _ _ _ _ _); ltac:(eexists; apply erefl) + idtac | idtac]; rewrite /= /eq_rect_r /=.
 
     Ltac r_str_ := etransitivity; [apply rewr_str; done | idtac].
@@ -528,13 +535,16 @@ Ltac get_args1 :=
     Ltac r_str_inp n1 n2 :=
       r_move n1 0%N;
       r_move n2 1%N;
+      arg_focus n2;
       rewrite rewr_str_inp.
 
     Ltac r_weakstr n1 n2 :=
       r_weak n1 n2;
       r_str n1 n2.
 
-    Ltac r_str_inv :=
+    Ltac r_str_inv n1 n2 :=
+      r_move n1 0%N;
+      r_move n2 1%N;
     etransitivity; [
     match goal with 
     | [ |- r_rewr  (_ :: inl (existT _ (_, _, ?n) _) :: _) _ ] => apply (rewr_str_inv _ _ n); done
@@ -544,7 +554,8 @@ Ltac get_args1 :=
     Ltac r_rename x y := etransitivity; [apply (rewr_rename _ _ _ x y); done | idtac]; simpl.
 
     (* ext : operates on the first reaction. *)
-    Ltac r_ext tm :=
+    Ltac r_ext m tm :=
+      r_move m 0%N;
       etransitivity; [apply rewr_ext; instantiate (1 := tm); rewrite /React_eq //= | idtac].
 
   Arguments rbind [N T H ].

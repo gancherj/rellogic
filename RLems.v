@@ -13,7 +13,6 @@ Section Theory.
 
   Context (N T : choiceType) `{type T}.
 
-
   Lemma rewr_rot : forall n (rs : rlist N T), r_rewr rs (rot_rcons n rs).
     intros.
     apply rewr_perm.
