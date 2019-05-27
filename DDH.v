@@ -4,7 +4,7 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps.
+Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps RLems.
 
 Require Import FCG.
 
@@ -124,12 +124,13 @@ Definition eg2 : rl :=
 
 
     Close Scope posrat_scope.
+
     Open Scope nat_scope.
 
   Arguments rbind [N T H ].
   
 Lemma eg_step1 : r_rewr ElGamal_real eg1.
-  rewrite /ElGamal_real.
+  rewrite /ElGamal_real /eg1.
     admit.
 Admitted.
 
@@ -138,6 +139,8 @@ Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
   apply rewr_refl.
 Qed.
 
+
+
 Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   r_move 6 0.
   unfold_bind0 "samp" "x" tyZq.
@@ -145,6 +148,7 @@ Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   unfold_bind1 "samp" "y" tyZq.
   r_move "samp" 0.
   unfold_bind2 "samp" "z" tyZq.
+  r_weak "X" "samp".
   r_subst "samp" "X".
   r_str "X" "samp".
   r_str "X" "z".
@@ -159,7 +163,6 @@ Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   r_subst "Z" "c".
   r_str "c" "Z".
   r_str "c" "Y".
-  rewrite !lift_det3.
   r_subst "samp" "c".
   r_str "c" "samp".
   r_clean.
@@ -170,17 +173,34 @@ Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   arg_focus "y".
   r_align.
   reflexivity.
-Qed.
-
+Time Qed.
 
 Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
   rewrite /eg2.
   simpl.
   r_move "z" 0.
   r_move "m" 1.
-  rewrite rewr_str_inp_inv.
-  instantiate (1 := tyG).
-  simpl.
+  r_move "c" 0.
+  arg_focus "z".
+  r_move "c" 1.
+
+  have: ([:: ("z", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)], true, ("c", tyPair tyG tyG)) =
+        (("z", tyZq) :: ([::] ++ [:: ("y", tyZq); ("pk", tyG); ("m", tyG)]), true, ("c", tyPair tyG tyG)). 
+   by done.
+   move => h.
+ rewrite (cast_existT h).
+
+ have -> : h = erefl by apply eq_irrelevance.
+ clear h.
+ etransitivity.
+ eapply rewr_bi_r.
+ rewrite /dep_cast /eq_rect.
+ apply: rewr_add_ch_fold.
+ done.
+ done.
+ instantiate (1 := ("m", tyG)).
+ done.
+    
   r_ext "z" (fun m => (x <- munif [finType of 'Z_q]; ret (Zp_add x (Zp_opp (log m))))).
     intro m.
     rewrite -munif_bij.
@@ -224,12 +244,23 @@ Lemma ElGamal_secure: r_rewr ddh0 ddh1 -> r_rewr ElGamal_real ElGamal_ideal.
   apply eg_factor_eq.
   etransitivity.
   instantiate (1 := eg1_factor ||| ddh1).
+  apply rewr_congr.
+  rewrite /eg1_factor /ddh0.
+  rewrite /Reaction.r_compat.
+  simpl.
+  intro.
+  move/andP; elim.
+  intro.
+  rewrite mem_seq1; move/eqP => ->.
+  done.
+  rewrite /Reaction.r_compat /eg1_factor /ddh1.
+  simpl.
+  intro; move/andP; elim; intro; rewrite mem_seq1; move/eqP => ->; done.
   (* TODO: congr rule *)
-  admit.
   etransitivity.
   apply eg_step2.
   apply eg_step3.
-Admitted.
+Qed.
   
 
   

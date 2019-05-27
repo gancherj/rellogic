@@ -15,9 +15,78 @@ Section Theory.
 
   Lemma rewr_rot : forall n (rs : rlist N T), r_rewr rs (rot_rcons n rs).
     intros.
+    apply rewr_bi_r.
     apply rewr_perm.
     apply Perm_rot.
   Qed.
+
+  Check rewr_fold.
+
+  Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * T) (r : Reaction G1 h) (n : N * T) (k : denomT h.2 -> Reaction (G1 ++ G2) n) m b,
+      h.1 \notin RChans rs ->
+      h.1 != n.1 ->
+      m \in G2 ->
+      r_rewr_bi
+        [:: G1 ~> h hid r,
+           inl (existT (fun ns => Reaction ns.1.1 ns.2) (h :: G1 ++ G2, b, n) k) & rs ]
+        [:: (m :: G1) ~> h hid (fun _ => r),
+           inl (existT (fun ns => Reaction ns.1.1 ns.2) (h :: G1 ++ G2, b, n) k) & rs].
+  intros.
+
+
+  eapply rewr_bi_trans.
+  apply rewr_bi_sym.
+  apply: rewr_fold; done.
+
+  eapply rewr_bi_trans.
+  apply (rewr_add_ch _ _ m).
+  rewrite mem_cat H2 orbT //=.
+
+  have -> :
+    (existT (fun ns : seq (N * T) * bool * (N * T) => Reaction ns.1.1 ns.2) 
+            (m :: G1 ++ G2, b, n) (fun _ : denomT m.2 => rbind G1 G2 h n r k)) =
+    (existT (fun ns : seq (N * T) * bool * (N * T) => Reaction ns.1.1 ns.2) 
+          ((m :: G1) ++ G2, b, n) (rbind (m :: G1) G2 h n (fun _ => r) (fun m _ => k m))).
+  done.
+
+  eapply rewr_bi_trans.
+  apply rewr_fold; done.
+
+  eapply rewr_bi_trans.
+  apply rewr_perm; apply perm_swap.
+  simpl.
+
+  eapply rewr_bi_trans.
+  apply (rewr_r_perm _ _ _ _ (Perm_swap 1 0 _)).
+  simpl.
+  rewrite /swap /=.
+
+  eapply rewr_bi_trans.
+  apply rewr_ext.
+  instantiate (1 := (fun _ => k)).
+  clear.
+
+      move: G2 h n k.
+      induction G1.
+      simpl.
+      induction G2.
+      done.
+      simpl.
+      intros.
+      eapply IHG2.
+      apply x.
+      simpl.
+      intros.
+      eapply IHG1.
+      done.
+
+  eapply rewr_bi_trans.
+  apply rewr_bi_sym.
+  apply (rewr_add_ch _ _ m).
+  rewrite in_cons mem_cat H2 !orbT //=.
+  apply rewr_perm; apply perm_swap.
+Qed.
+
 
     Definition mutual_disjoint3 {A : eqType} (xs ys zs : list A) :=
       forall x, [/\ ~~ ((x \in xs) && (x \in ys)), 
@@ -104,12 +173,6 @@ Section Theory.
       done.
     Qed.
 
-    Lemma chan_of_reaction_bind (r : reaction N T) n b k :
-      chan_of (inl (reaction_bind _ _ r n b k)) = n.1.
-      rewrite /reaction_bind.
-      destruct r; done.
-    Qed.
-
 
     Lemma chan_of_reaction_weak (r : reaction N T) n:
       chan_of (inl (reaction_weak _ _ r n)) = chan_of (inl r).
@@ -165,6 +228,7 @@ Section Theory.
 
     Lemma trythis (r : rlist N T) r' :
       r_wf r -> r_rewr r r' -> r_wf r'.
+      (*
       intros.
       move: H0.
       induction H1.
@@ -178,6 +242,7 @@ Section Theory.
       done.
       intro.
       rewrite r_wf_cons //=.
+*)
       (*
       rewrite (negbTE H0) orbF.
       rewrite r_wf_cons //= in H3.

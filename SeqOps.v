@@ -307,3 +307,115 @@ Lemma prefix_cat {A : eqType} (xs ys : seq A) : prefix xs (xs ++ ys).
   rewrite eq_refl.
   done.
 Defined.
+
+Fixpoint extract_right_cat {A : eqType} (xs ys : seq A) : option (seq A) :=
+  match xs, ys with
+  | nil, nil => Some nil
+  | (x :: xs), nil => None
+  | nil, y :: ys => Some (y :: ys)
+  | (x :: xs), (y :: ys) =>
+    if x == y then
+      extract_right_cat xs ys
+    else
+      None
+  end.
+
+Lemma extract_right_catP {A : eqType} (xs ys : seq A) zs :
+  extract_right_cat xs ys = Some zs ->
+  ys = xs ++ zs.
+  move: ys; induction xs.
+  induction ys.
+  simpl.
+  intro H; injection H; done.
+  simpl.
+  intro H; injection H; done.
+  induction ys.
+  simpl.
+  done.
+  simpl.
+  destruct (eqVneq a a0).
+  subst.
+  rewrite eq_refl.
+  move/IHxs.
+  move => ->; done.
+  rewrite (negbTE i).
+  done.
+Qed.
+
+Definition extract_cons {A : eqType} (a : A) (xs : seq A) : option (seq A).
+  destruct xs.
+  apply None.
+  apply (if a == s then Some xs else None).
+Defined.
+
+Lemma extract_consP {A : eqType} (a : A) xs ys :
+  extract_cons a xs = Some ys -> xs = a :: ys.
+  induction xs.
+  done.
+  simpl.
+  destruct (eqVneq a a0).
+  destruct e.
+  rewrite eq_refl.
+  intro h; injection h.
+  move => ->.
+  done.
+  rewrite (negbTE i); done.
+Qed.
+
+
+Definition extract_right_cons_cat {A : eqType} (h : A) (xs ys : seq A) : option (seq A) :=
+  match extract_cons h ys with
+    | None => None
+    | Some ys' =>
+      extract_right_cat xs ys'
+                        end.
+
+Lemma extract_right_cons_catP {A : eqType} (h : A) xs ys zs :
+  extract_right_cons_cat h xs ys = Some zs ->
+  ys = h :: xs ++ zs.
+  rewrite /extract_right_cons_cat.
+  remember (extract_cons h ys) as o; destruct o; symmetry in Heqo.
+  apply extract_consP in Heqo.
+  rewrite Heqo.
+  move/extract_right_catP.
+  move => ->.
+  done.
+  done.
+Qed.
+
+Lemma orP_sumbool {b1 b2 : bool} : (b1 || b2) -> {b1} + {b2}.
+  destruct b1.
+  intro; apply left; apply is_true_true.
+  destruct b2.
+  intros; apply right; apply is_true_true.
+  done.
+Qed.
+
+Lemma Perm_rem_cat_l {A : eqType} (xs ys : seq A) x : x \in ys ->
+                                                            Perm (xs ++ ys) ((x :: xs) ++ (rem x ys)).
+  move: x ys.
+  induction xs.
+  simpl.
+  induction ys.
+  done.
+  simpl.
+  destruct (eqVneq a x).
+  subst.
+  rewrite eq_refl.
+  intros; apply Perm_refl.
+  rewrite (negbTE i).
+  intros.
+  eapply perm_trans; last first.
+  apply Perm_sym.
+  apply perm_swap.
+  apply perm_skip.
+  apply IHys.
+  rewrite in_cons in H.
+  rewrite eq_sym (negbTE i) in H; done.
+  intros; simpl.
+  eapply perm_trans; last first.
+  apply perm_swap.
+  apply perm_skip.
+  apply IHxs.
+  done.
+Qed.
