@@ -111,7 +111,7 @@ Section RPS.
       inr "inB";
       [:: ("inA", tyPlay); ("inB", tyPlay)] ~> ("comp", tyAns) dhid rps_comp;
       [:: ("comp", tyAns)] ~> ("outA", tyAns) dvis id;
-      [:: ("comp", tyAns)] ~> ("outB", tyAns) dvis (fun x => ans_flip x)
+      [:: ("comp", tyAns)] ~> ("outB", tyAns) dvis id
     ].
 
   Definition rpsRealP (p : bool) :rl :=
@@ -159,51 +159,30 @@ Section RPS.
     rewrite eq_refl in i; done.
   Qed.
 
+  (******* NOBODY CORRUPTED ********)
     
   Lemma ideal_rewr : r_rewr rps_simp rpsIdeal.
     rewrite /rpsIdeal /rps_simp.
     simpl.
-    r_ext "outB" (fun y x => t <- ret (rps_comp x y); ret (ans_flip t)).
-    intros; msimp.
-      by destruct x; destruct x0.
-    unfold_bind "outB" "comp" tyAns.
-    r_str_inv "outA" "comp".
-    r_move 1 0; arg_focus "inB"; r_move 0 1.
-    rewrite !lift_det2.
-    etransitivity.
-    apply rewr_ext.
-    Check (@detReaction_subst _ _ _ [:: ("inB", tyPlay); ("inA", tyPlay)] [:: ("inB", tyPlay); ("inA", tyPlay)] ("comp", tyAns) ("outA", tyAns) (fun y x => rps_comp y x) (fun a y x => ret a) (exist _ _ erefl)).
-    instantiate (1 := (@detReaction_subst _ _ _ [:: ("inA", tyPlay); ("inB", tyPlay)] [:: ("inA", tyPlay); ("inB", tyPlay)] ("comp", tyAns) ("outA", tyAns) (fun y x => rps_comp y x) (fun a y x => ret a) (exist _ _ erefl))).
-    simpl.
-    intros; rewrite /eq_rect_r /=.
-    done.
-    erewrite rewr_perm; last first.
-    apply perm_swap.
-    rewrite rewr_subst_inv.
-
-    simpl.
-    instantiate (1 := detReaction_subst (fun y x => rps_comp x y) _ _).
-
-    Check detReaction_subst.
-    erewrite rewr_ext; last first.
-    instantiate (1 := detReaction_subst 
-    have: exists z,
-        
-
-    rewrite rewr_subst_inv.
-    r
-    
-
-    Check r_
-    rewrite (rewr_dep _ _ _ _ ("comp", tyAns)); [idtac | idtac | done].
-    admit.
-    last
-
-
-    r_d
-    r_move "outA" 0%N.
-    r_str_inv "outA" "comp".
-  Admitted.
+    r_move "outA" 0.
+    arg_focus "inA".
+    r_prod "outA" "outB" "tmp".
+    rewrite /eq_rect_r /=.
+    r_ext "tmp" (fun x y => a <- ret (rps_comp x y); ret (a, a)).
+    intros; destruct x; destruct x0; simpl; msimp; done.
+    unfold_bind2 "tmp" "comp" tyAns.
+    r_subst "tmp" "outB".
+    r_str "outB" "tmp".
+    r_subst "tmp" "outA".
+    r_str "outA" "tmp".
+    r_str_inp "outA" "inA".
+    r_str_inp "outA" "inB".
+    r_str_inp "outB" "inA".
+    r_str_inp "outB" "inB".
+    r_clean.
+    r_align.
+    reflexivity.
+  Qed.
 
   Lemma real_rewr : r_rewr rpsReal rps_simp.
     rewrite /rpsReal /rpsRealF /rpsRealP.
