@@ -87,6 +87,34 @@ Section Theory.
   apply rewr_perm; apply perm_swap.
 Qed.
 
+  Lemma fold_bind00 : forall (rs : rlist N T) (h : N * T) (m : meas (denomT h.2)) (n : N * T) (k : denomT h.2 -> meas (denomT n.2)) (b : bool) ,
+      h.1 \notin RChans rs ->
+      h.1 != n.1 ->
+      r_rewr [:: nil ~> h hid m, inl (existT (fun ns => Reaction ns.1.1 ns.2) (h :: nil, b, n) k) & rs]
+             ((inl (existT (fun ns => Reaction ns.1.1 ns.2) (nil, b, n) (x <- m; k x))) :: rs).
+    intros.
+    etransitivity.
+    apply rewr_bi_l.
+    apply: rewr_fold.
+    done.
+    done.
+    simpl; reflexivity.
+  Qed.
+
+  Lemma fold_bind01 : forall (rs : rlist N T) (h : N * T) (m : meas (denomT h.2)) (y : (N * T)) (n : N * T) (k : denomT h.2 -> denomT y.2 -> meas (denomT n.2)) (b : bool) ,
+      h.1 \notin RChans rs ->
+      h.1 != n.1 ->
+      r_rewr [:: nil ~> h hid m, inl (existT (fun ns => Reaction ns.1.1 ns.2) (h :: y :: nil, b, n) k) & rs]
+             ((inl (existT (fun ns => Reaction ns.1.1 ns.2) (y :: nil, b, n) (fun y => x <- m; k x y))) :: rs).
+  intros.
+  etransitivity.
+  apply rewr_bi_l.
+  apply: rewr_fold.
+  done.
+  done.
+  simpl.
+  reflexivity.
+  Qed.
 
     Definition mutual_disjoint3 {A : eqType} (xs ys zs : list A) :=
       forall x, [/\ ~~ ((x \in xs) && (x \in ys)), 

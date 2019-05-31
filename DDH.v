@@ -131,8 +131,68 @@ Definition eg2 : rl :=
   
 Lemma eg_step1 : r_rewr ElGamal_real eg1.
   rewrite /ElGamal_real /eg1.
-    admit.
-Admitted.
+  r_ext "c" (fun x y (pk : denomT tyG) m => gxy <- ret (exp (Zp_mul x y)); ret (exp y, gxy * m)%fcg).
+  intros; msimp; done.
+  unfold_bind4 "c" "gxy" tyG.
+  r_str "c" "x".
+  r_ext "c" (fun xgy (y : denomT tyZq) (pk : denomT tyG) m => gy <- ret (exp y); ret (gy, xgy * m)%fcg).
+  intros; msimp; done.
+  unfold_bind4 "c" "gy" tyG.
+  r_str "c" "y".
+  r_ext "pk" (fun x => gx <- ret (exp x); ret gx).
+  intros; msimp; done.
+  unfold_bind1 "pk" "gx" tyG.
+  r_str "pk" "x".
+    rewrite bind_ret.
+  r_weakstr "gxy" "pk".
+  r_str_inp "gxy" "m".
+  r_weakstr "gxy" "gx".
+  r_weakstr "gy" "gxy".
+  r_weakstr "gy" "x".
+  r_weakstr "gy" "pk".
+  r_weakstr "gy" "gx".
+  r_str_inp "gy" "m".
+  r_prod "gy" "gxy" "gy_gxy".
+    rewrite /eq_rect_r //=.
+  r_str "gxy" "x".
+  r_str "gxy" "y".
+  r_weakstr "gy" "y". 
+  r_move "y" 0.
+  r_move "gy_gxy" 0.
+  arg_focus "y".
+  r_move "gy_gxy" 1.
+  rewrite fold_bind01; [idtac | done | done].
+  simpl.
+  r_prod "gx" "gy_gxy" "gx_gy_gxy".
+  rewrite /eq_rect_r //=.
+  r_weakstr "gy_gxy" "x".
+  r_weakstr "gy" "x".
+  r_weakstr "gx" "x".
+  r_move "x" 0.
+  r_move "gx_gy_gxy" 1.
+  rewrite fold_bind00; [idtac | done | done].
+  r_ext "gx_gy_gxy" (p <- (x <- munif [finType of 'Z_q]; y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y))); ret (p.2, p.1.2, p.1.1)).
+  msimp.
+  done.
+  unfold_bind0 "gx_gy_gxy" "samp" (tyPair (tyPair tyG tyG) tyG).
+  r_subst "gy_gxy" "gxy".
+  r_str "gxy" "gy_gxy".
+  r_subst "gy_gxy" "gy".
+  r_str "gy" "gy_gxy".
+  r_clean.
+  r_subst "gx_gy_gxy" "gy".
+  r_str "gy" "gx_gy_gxy".
+  r_subst "gx_gy_gxy" "gx".
+  r_str "gx" "gx_gy_gxy".
+  r_subst "gx_gy_gxy" "gxy".
+  r_str "gxy" "gx_gy_gxy".
+  r_clean.
+  r_rename "gx" "X".
+  r_rename "gy" "Y".
+  r_rename "gxy" "Z".
+  r_align.
+  reflexivity.
+Qed.
 
 Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
   r_move 0 6.
@@ -141,7 +201,7 @@ Qed.
 
 
 
-Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
+Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2..
   r_move 6 0.
   unfold_bind0 "samp" "x" tyZq.
   r_move "samp" 0.

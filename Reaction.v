@@ -608,6 +608,14 @@ Ltac get_val0 :=
     end;
     etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
 
+    Ltac unfold_bind4 n midn midty :=
+    match goal with
+    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y z w => mbind ?m ?k)) :: ?rs) _] =>
+      etransitivity; [
+        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind ns nil (midn, midty) to _ _)); done | idtac]
+    end;
+    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
+
     Ltac unfold_bind n midn midty :=
     r_move n 0%N;
     match goal with
