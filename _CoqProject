@@ -7,6 +7,7 @@ Premeas.v
 Meas.v
 finfun_fixed.v
 SSRString.v
-Reaction.v
+Logic.v
+Tacs.v
 SeqOps.v
 RLems.v
