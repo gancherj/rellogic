@@ -43,6 +43,17 @@ Notation "G ~> c 'dhid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%S
 Notation "x ||| y" := (rlist_comp_hide _ _ x y) (at level 40).
 Notation "x |||v y" := (rlist_comp _ _ x y) (at level 40).
 
+(* General Tactics *)
+
+Ltac Tac_iter xs k :=
+  match xs with
+    | nil => idtac
+    | (?x :: ?xs') => (k x); Tac_iter xs' k
+                                      end.
+
+Close Scope posrat_scope.
+Open Scope nat_scope.
+
 Section Lems.
   Context {N T : choiceType} `{type T}.
 
@@ -150,20 +161,22 @@ Ltac get_rs_at x :=
                             end 
              end.
 
-Ltac get_tag_at a n :=
+Ltac get_tag_at_rec n rs :=
   match n with
-    | 0 => 
-        let rs := get_rs_at a in
-        match rs with
-        | (inl (@existT _ _ ?p _) :: _) => p
-                                            end
-    | S 0 =>
-        let rs := get_rs_at a in
-        match rs with
-        | (_ :: inl (@existT _ _ ?p _) :: _) => p
-                                            end
-    | _ => fail "get_tag_at needs more cases than 0 & 1"
-          end.
+  | 0%N => match rs with
+           | (inl (@existT _ _ ?p _) :: _) => p
+                                                end
+  | S ?n' =>
+    match rs with
+    | (_ :: ?rs') => get_tag_at_rec n' rs'
+    end
+  end.
+      
+  
+Ltac get_tag_at a x :=
+  let n := r_idx_of_at a x in
+  let rs := get_rs_at a in
+  get_tag_at_rec n rs.
       
 Ltac get_args_at a n :=
   let p := get_tag_at a n in
@@ -189,7 +202,7 @@ Ltac get_val_at a n :=
     match (type of n) with
     | nat => n
     | _ =>
-      let args := get_args_at a 0 in
+      let args := get_args_at a 0%N in
       let i := eval compute in (ofind args (fun p => p.1 == n)) in
             match i with
                 | Some ?a => a
@@ -208,6 +221,9 @@ Ltac get_val_at a n :=
       | [ |- @r_rewr_bi _ _ _ _ _ ] => fail "Tactic not supported in bidirectional mode."
       | _ => idtac end.
 
+
+    
+
 (* REWRITING TACTICS *)
 
   (* move 'from' to 'to' *)
@@ -224,6 +240,13 @@ Ltac get_val_at a n :=
   Ltac r_move from to := r_move_at leftc from to.
   Ltac r_move_r from to := r_move_at rightc from to.
 
+  Ltac ensure_val_at a x n :=
+    let v := get_val_at a x in
+    match v with
+      | (n, _) => idtac 
+      | _ => r_move_at a x n
+                       end.
+
   Ltac arg_move_at a n from to :=
     r_move_at a n 0%N;
     let i := arg_idx_of_at a from in
@@ -235,6 +258,7 @@ Ltac get_val_at a n :=
         eapply rewr_r_l ; [ apply (rewr_r_perm _ _ _ _ (Perm_swap i j _)) | idtac]; unfold swap; simpl
                                                                                           end.
 
+
   Ltac arg_move n from to := arg_move_at leftc n from to.
   Ltac arg_move_r n from to := arg_move_at rightc n from to.
 
@@ -242,8 +266,8 @@ Ltac get_val_at a n :=
   Ltac arg_focus_r n x := arg_move_r n x 0%N.
     
   Ltac r_prod_at a x y n :=
-    r_move_at a x 0%N;
-    r_move_at a y 0%N;
+    ensure_val_at a y 0%N;
+    ensure_val_at a x 1%N;
     match a with
     | leftc =>
       etransitivity; [ensure_bi_r; apply: (rewr_pair _ _ n); done | simpl]; unfold eq_rect_r; simpl
@@ -254,20 +278,14 @@ Ltac get_val_at a n :=
   Ltac r_prod x y n := r_prod_at leftc x y n.
   Ltac r_prod_r x y n := r_prod_at rightc x y n.
 
-
-
+  (* Weaken the first sequent by a value in the second's args. *)
     Ltac r_weak_ n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
 
-    (* weaken reaction n1, which uses reaction n2, by arg 'n' of type t (which must be in n2) *)
-    Ltac r_weak_by n1 n2 n t :=
-      r_move n1 0%N;
-      r_move n2 1%N;
-      r_weak_ n t.
 
     (* find arg in n2 that does not appear in n1 *)
     Ltac r_find_weak n1 n2 k :=
-      r_move n1 0%N;
-      r_move n2 1%N;
+      ensure_val_at leftc n1 0%N;
+      ensure_val_at leftc n2 1%N;
       let args1 := get_args_at leftc 0 in
       let args2 := get_args_at leftc (S 0) in
       let chk := eval compute in (n2 \in map fst args1) in
@@ -280,15 +298,19 @@ Ltac get_val_at a n :=
 
     (* TODO: The below one only works for the general weak rule which holds for everything; I need to implement a rule that uses rewr_hid_ws *)
     Ltac r_weak n1 n2 :=
+      ensure_val_at leftc n1 0%N;
+      ensure_val_at leftc n2 1%N;
       ensure_not_bi;
       r_find_weak n1 n2
         ltac:(fun p =>
            let j := eval compute in p in
            match j with
-           | Some ?p1p2 => r_weak_by n1 n2 constr:(p1p2.1) constr:(p1p2.2); r_weak n1 n2
+           | Some ?p1p2 => r_weak_ constr:(p1p2.1) constr:(p1p2.2); r_weak n1 n2
            | None => idtac                                                             
            | _ => idtac "hello" j
                     end).
+
+    
 
 
     Ltac ensure_arg_prefix_at a n ns ctr :=
@@ -307,6 +329,21 @@ Ltac rewrite_args_at a n ns :=
   let val := get_val_at a 0 in
   assert (heq : (ns_old, b, val) = (ns, b, val)) ; [ done | rewrite (cast_existT heq); have -> : heq = erefl by apply eq_irrelevance; clear heq]; try clear heq; unfold dep_cast; unfold eq_rect .
   
+
+    (* remove redundant 'm' *)
+    Ltac r_remove m :=
+      r_move m 0%N;
+      etransitivity; [ensure_bi_r; apply (rewr_addrem _ _); done | idtac]; simpl.
+
+    Ltac r_clean :=
+      match goal with
+      | [ |- @r_rewr _ _ _ ?rs _ ] =>
+        let p := eval compute in (ofind_val (RHiddens rs) (fun n => n \notin RArgs _ _ rs) ) in
+            match p with
+              | Some ?n => r_remove n
+              | _ => fail "no more to clean"
+            end
+              end.
 
   (*
 
@@ -414,20 +451,6 @@ Ltac rewrite_args_at a n ns :=
       
 
 
-    (* remove redundant 'm' *)
-    Ltac r_remove m :=
-      r_move m 0%N;
-      etransitivity; [apply rewr_bi_r; apply (rewr_addrem _ _); done | idtac]; simpl.
-
-    Ltac r_clean :=
-      match goal with
-      | [ |- @r_rewr _ _ _ ?rs _ ] =>
-        let p := eval compute in (ofind_val (RHiddens rs) (fun n => n \notin RArgs _ _ rs) ) in
-            match p with
-              | Some ?n => r_remove n
-              | _ => fail "no more to clean"
-            end
-              end.
 
     Ltac r_align_rec rs c :=
       match rs with
