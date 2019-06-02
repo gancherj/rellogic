@@ -285,10 +285,11 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
         [:: (ns ~> h b1 (lift_det r)), (h :: (ns ++ ns') ~> f b2 k) & rs]
         [:: (ns ~> h b1 (lift_det r)), (h :: (ns ++ ns') ~> f b2 (detReaction_subst r k)) & rs]
   | rewr_hid_ws :
-      forall g1 g2 h (d : Reaction g1 h) c (d' : Reaction (g1 ++ g2) c) b rs,
+      forall g1 g2 h (d : Reaction g1 h) c (d' : Reaction (g2) c) b rs,
+        all (fun x => x \in g2) g1 ->
         r_rewr_bi
-         [:: (g1 ~> h false d), ((h :: (g1 ++ g2)) ~> c b (fun _ => d')) & rs] 
-         [:: (g1 ~> h false d), (((g1 ++ g2)) ~> c b d') & rs] 
+         [:: (g1 ~> h false d), (((g2)) ~> c b d') & rs] 
+         [:: (g1 ~> h false d), ((h :: (g2)) ~> c b (fun _ => d')) & rs] 
   | rewr_addrem :
       forall rs h g1 (r : Reaction g1 h),
         all (fun x => x \in RChans rs) (map fst g1) ->
@@ -302,19 +303,19 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
   | rewr_bi_l : forall r1 r2, r_rewr_bi r1 r2 -> r_rewr r2 r1
   | rewr_refl : forall r, r_rewr r r
   | rewr_trans : forall r1 r2 r3, r_rewr r1 r2 -> r_rewr r2 r3 -> r_rewr r1 r3
-  | rewr_weak : forall n (rs : rlist) (r : reaction) (r' : reaction), 
-      n \in (tag r).1.1 ->
-      reaction_dep r' (tag r).2.1 ->
-      r_rewr (inl r' :: inl r :: rs)
-             (inl (reaction_weak r' n) :: inl r :: rs) 
-  | rewr_str : forall (rs : rlist) (r : reaction) ns b f (k : Reaction ns f) n,
-      (all (fun x => x \in ns) (tag r).1.1) ->
-      n = (tag r).2 ->
-      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) (n :: ns, b, _) (fun _ => k)) :: inl r :: rs)
-             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inl r :: rs)
-  | rewr_str_inp : forall (rs : rlist) (i : N) ns b f (k : Reaction ns f) t,
-      r_rewr (inl (existT (fun ns => Reaction ns.1.1 ns.2) ((i, t) :: ns, b, _) (fun _ => k)) :: inr i :: rs)
-             (inl (existT (fun ns => Reaction ns.1.1 ns.2) (ns, b, _) k) :: inr i :: rs)
+  | rewr_weak : forall n (rs : rlist) (g1 g2 : seq (N * T)) (f1 f2 : N * T) (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2,
+      n \in g1 ->
+      f1 \in g2 ->
+             r_rewr [:: (g2 ~> f2 b2 d'), (g1 ~> f1 b1 d) & rs]
+                    [:: (n :: g2 ~> f2 b2 (fun _ => d')), (g1 ~> f1 b1 d) & rs]
+  | rewr_str : forall (rs : rlist) (g : seq (N * T)) (f : N * T) (d : Reaction g f) b (n : N * T) rs,
+      n.1 \in RChans rs ->
+      r_rewr [:: (n :: g ~> f b (fun _ => d)) & rs]
+             [:: (g ~> f b d) & rs]
+  | rewr_str_inp : forall (rs : rlist) (i : N * T) g b f (k : Reaction g f),
+      i.1 \in RInputs rs ->
+      r_rewr [:: (i :: g) ~> f b (fun _ => k) & rs]
+             [:: g ~> f b k & rs]
   | rewr_rename : forall rs n n',
       n \notin RInputs rs ->
       n \notin ROutputs rs ->
