@@ -4,7 +4,8 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps RLems.
+Require Import Posrat Premeas Meas Aux finfun_fixed String SSRString SeqOps RLems.
+Require Import Logic Tacs.
 
 Require Import FCG.
 
@@ -80,7 +81,7 @@ Definition ddh1 : rl :=
 
 Definition ElGamal_real : rl :=
     [:: [::] ~> ("x", tyZq) hid (x <- munif [finType of 'Z_q]; ret x);
-       [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x  => (exp x)%g);
+       [:: ("x", tyZq)] ~> ("pk", tyG) dvis ((fun x  => (exp x)%g));
        inr "m";
        [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
        [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis
@@ -124,13 +125,33 @@ Definition eg2 : rl :=
 
 
     Close Scope posrat_scope.
-
     Open Scope nat_scope.
 
   Arguments rbind [N T H ].
   
 Lemma eg_step1 : r_rewr ElGamal_real eg1.
   rewrite /ElGamal_real /eg1.
+  rewrite_args_at leftc "c" ([:: ("x", tyZq)] ++ [:: ("y", tyZq); ("pk", tyG); ("m", tyG)])%SEQ.
+  done.
+  rewrite (cast_existT heq).
+  have -> : heq = erefl by apply eq_irrelevance.
+  clear heq.
+  move: heq.
+
+  move/eq_irrelevance.
+  done.
+  rewrite (cast_existT heq).
+
+  Ltac delay t := (fun _ => t).
+  Ltac force t := t constr:(tt).
+  Tactic Notation "r_right" tactic(t) := eapply rewr_r_l; [ force (fun _ => t); reflexivity | idtac ].
+  r_right (r_move "samp" 1).
+  trythis ltac:((fun _ => r_move "samp" 1)).
+
+  eapply rewr_r_l; r.
+  r_move "samp" 1.
+  reflexivity.
+  r_right idtac.
   r_ext "c" (fun x y (pk : denomT tyG) m => gxy <- ret (exp (Zp_mul x y)); ret (exp y, gxy * m)%fcg).
   intros; msimp; done.
   unfold_bind4 "c" "gxy" tyG.

@@ -5,9 +5,7 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps.
-
-
+Require Import Posrat Premeas Meas Aux SeqOps Logic Tacs.
 
 Section Theory.
 
@@ -20,8 +18,7 @@ Section Theory.
     apply Perm_rot.
   Qed.
 
-  Check rewr_fold.
-
+(*
   Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * T) (r : Reaction G1 h) (n : N * T) (k : denomT h.2 -> Reaction (G1 ++ G2) n) m b,
       h.1 \notin RChans rs ->
       h.1 != n.1 ->
@@ -302,6 +299,8 @@ Qed.
       done.
 *)
    Admitted.
-    End Theory.
 
 Arguments r_wf [N T H].
+
+*)
+    End Theory.

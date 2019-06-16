@@ -3,6 +3,17 @@ From mathcomp Require Import ssreflect ssrfun ssrbool ssrint eqtype ssrnat seq c
 From mathcomp Require Import bigop ssralg div ssrnum ssrint finset ssrnum ssrnat finmap tuple.
 
 Require Import Premeas Meas Posrat Aux finfun_fixed SeqOps Logic.
+Require List.
+
+
+Ltac list_in :=
+  match goal with
+    | [ |- @List.In _ ?x nil] => fail "not found"
+    | [ |- @List.In _ ?x (?x :: ?xs)] => left; done
+    | [ |- @List.In _ ?x (?y :: ?xs)] => right; list_in
+                                                  end.
+
+
 
 Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr N T _)
     reflexivity proved by (@rewr_refl _ _ _)
@@ -10,6 +21,7 @@ Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr N
 
 Add Parametric Relation (N T : choiceType) `{type T} : (@rlist N T _) (@r_rewr_bi N T _)
     reflexivity proved by (@rewr_bi_refl _ _ _)
+    symmetry proved by (@rewr_bi_sym _ _ _)
     transitivity proved by (@rewr_bi_trans _ _ _) as r_rewr_bi_rel.
 
 Arguments r_rewr [N T H].
@@ -51,6 +63,18 @@ Ltac Tac_iter xs k :=
     | (?x :: ?xs') => (k x); Tac_iter xs' k
                                       end.
 
+Ltac hd xs :=
+  match xs with
+    | nil => fail "no head of nil"
+    | (?x :: ?xs) => x
+                       end.
+
+Ltac tail xs :=
+  match xs with
+    | nil => nil
+    | (?x :: ?xs) => xs
+                       end.
+
 Close Scope posrat_scope.
 Open Scope nat_scope.
 
@@ -74,19 +98,6 @@ Section Lems.
      apply rewr_bi_l.
      apply H0.
    Qed.
-
-
-  Lemma rewr_subst_eq (rs : rlist N T) (ns ns2 ns' : seq (N * T)) (b1 b2 : bool) (h f : N * T) (r : detReaction N T ns h) (k : Reaction ns2 f) (k' : Reaction (h :: ns ++ ns') f) :
-  existT (fun ns => Reaction ns.1.1 ns.2) (ns2, b2, f) k =
-  existT (fun ns => Reaction ns.1.1 ns.2) (h :: ns ++ ns', b2, f) k' -> 
-  r_rewr_bi [:: ns ~> h b1 (lift_det ns h r), ns2 ~> f b2 k & rs]
-            [:: ns ~> h b1 lift_det ns h r, h :: ns ++ ns' ~> f b2 detReaction_subst N T r k' & rs].
-    intro.
-    rewrite H0.
-    apply rewr_subst.
-  Qed.
-
-
 
     Lemma lift_det0  b h (f : denomT h.2) :
       existT (fun (ns : seq (N * T) * bool * (N * T)) => Reaction ns.1.1 ns.2) (nil, b, h) (ret f) =
@@ -118,13 +129,31 @@ Section Lems.
       rewrite /rbind //=.
     Qed.
 
-
-    Check rbind.
-
-    Lemma lift_bind1 (p : N * T) t f (n : N) (m : denomT p.2 -> meas (denomT t)) (k : denomT p.2 -> denomT t -> meas (denomT f.2)) :
+    Lemma lift_bind1 (p : N * T) (n : N) t f (m : denomT p.2 -> meas (denomT t)) (k : denomT p.2 -> denomT t -> meas (denomT f.2)) :
       @React_eq _ _ _ [:: p] f (fun x => mbind (m x) (k x))
                                (rbind [:: p] nil (n,t) f m (fun n2 p2 => k p2 n2)).
       rewrite /rbind //=.
+    Qed.
+
+
+
+    (* **** reverse lemmas **** *)
+
+    Lemma rewr_add_ch_rev (rs : rlist N T) b g f (r : Reaction g f) n (c : N * T):
+      n < size rs ->
+      List.nth_error rs n = Some ((c :: g) ~> f b (fun _ => r)) ->
+      c \in g ->
+      rs <~~> lset rs n (g ~> f b r).
+      intros.
+      symmetry.
+      have heq: rs = lset (lset rs n (g ~> f b r)) n (c :: g ~> f b (fun _ => r)).
+        rewrite lset_lset; apply lset_nth_error; done.
+      rewrite {2}heq.
+      apply rewr_add_ch.
+      rewrite nth_error_lset.
+      done.
+      done.
+      done.
     Qed.
 
 End Lems.
@@ -148,8 +177,9 @@ Ltac get_rs_at x :=
       end
 .
 
+
   (* n may be either a nat or a name; if a nat, just return the nat; if something else, find the index of the reaction with the corresponding name *)
-  Ltac r_idx_of_at a n :=
+  Ltac pos_of_at a n :=
     match (type of n) with
     | nat => n
     | _ =>
@@ -174,7 +204,7 @@ Ltac get_tag_at_rec n rs :=
       
   
 Ltac get_tag_at a x :=
-  let n := r_idx_of_at a x in
+  let n := pos_of_at a x in
   let rs := get_rs_at a in
   get_tag_at_rec n rs.
       
@@ -198,11 +228,11 @@ Ltac get_val_at a n :=
                 end.
 
   (* n may be either a nat or a name; if a nat, return the nat; if something else, find the index of the argument that matches the name in the first reaction *)
-  Ltac arg_idx_of_at a n :=
+  Ltac arg_idx_of_at a y n :=
     match (type of n) with
     | nat => n
     | _ =>
-      let args := get_args_at a 0%N in
+      let args := get_args_at a y in
       let i := eval compute in (ofind args (fun p => p.1 == n)) in
             match i with
                 | Some ?a => a
@@ -221,21 +251,22 @@ Ltac get_val_at a n :=
       | [ |- @r_rewr_bi _ _ _ _ _ ] => fail "Tactic not supported in bidirectional mode."
       | _ => idtac end.
 
-
+  Ltac apply_bi_at a t :=
+    match a with
+    | leftc =>
+      etransitivity; [ensure_bi_r; t | ]
+    | rightc =>
+      eapply rewr_r_l; [t | ]
+                         end.
     
 
 (* REWRITING TACTICS *)
 
   (* move 'from' to 'to' *)
   Ltac r_move_at a from to :=
-   let i := r_idx_of_at a from in 
-   let j := r_idx_of_at a to in
-   match a with
-     | leftc => 
-        etransitivity; [ensure_bi_r; apply rewr_perm; apply (Perm_swap_irrel i j) | idtac]; rewrite /swap /=
-     | rightc =>                                                                                                  
-       eapply rewr_r_l; [apply rewr_perm; apply (Perm_swap_irrel i j) | idtac]; rewrite /swap /=
-                                                                                                     end.
+   let i := pos_of_at a from in 
+   let j := pos_of_at a to in
+   apply_bi_at a ltac:(apply rewr_perm; apply (Perm_swap_irrel i j)); rewrite /swap /=.
 
   Ltac r_move from to := r_move_at leftc from to.
   Ltac r_move_r from to := r_move_at rightc from to.
@@ -247,233 +278,120 @@ Ltac get_val_at a n :=
       | _ => r_move_at a x n
                        end.
 
-  Ltac arg_move_at a n from to :=
-    r_move_at a n 0%N;
-    let i := arg_idx_of_at a from in
-    let j := arg_idx_of_at a to in
-    match a with
-      | leftc =>
-        etransitivity; [ensure_bi_r; apply (rewr_r_perm _ _ _ _ (Perm_swap i j _)) | idtac]; unfold swap; simpl
-      | rightc =>
-        eapply rewr_r_l ; [ apply (rewr_r_perm _ _ _ _ (Perm_swap i j _)) | idtac]; unfold swap; simpl
-                                                                                          end.
+  (* add/remove duplicate channels *)
 
+  Arguments rewr_add_ch [N T H rs b].
+  Arguments rewr_add_ch_rev [N T H rs b].
+  (* a = leftc or rightc
+     pos = name /idx of sequent to be manipulated
+     n, ty : channel to add *)
+  Ltac add_ch_at a pos n ty :=
+    let i := pos_of_at a pos in
+    let g := get_args_at a i in
+    apply_bi_at a ltac:(eapply (rewr_add_ch g _ _ i (n, ty)); done); simpl.
+
+  (* a = leftc or rightc
+     pos = name/idx of sequent to be manipulated
+
+     channel to remove must be first! *)
+  Ltac rem_ch_at a pos :=
+    let i := pos_of_at a pos in
+    let c_g := get_args_at a i in
+    let c := hd c_g in
+    let g := tail c_g in
+    apply_bi_at a ltac:(apply: (rewr_add_ch_rev g _ _ i c); [done | apply : erefl | done]); simpl.
+
+  (*
 
   Ltac arg_move n from to := arg_move_at leftc n from to.
   Ltac arg_move_r n from to := arg_move_at rightc n from to.
 
   Ltac arg_focus n x := arg_move n x 0%N.
   Ltac arg_focus_r n x := arg_move_r n x 0%N.
-    
-  Ltac r_prod_at a x y n :=
-    ensure_val_at a y 0%N;
-    ensure_val_at a x 1%N;
-    match a with
-    | leftc =>
-      etransitivity; [ensure_bi_r; apply: (rewr_pair _ _ n); done | simpl]; unfold eq_rect_r; simpl
-    | rightc =>
-      eapply rewr_r_l; [apply: (rewr_pair _ _ n); done | simpl]; unfold eq_rect_r; simpl
-                         end.
-
-  Ltac r_prod x y n := r_prod_at leftc x y n.
-  Ltac r_prod_r x y n := r_prod_at rightc x y n.
-
-  (* Weaken the first sequent by a value in the second's args. *)
-    Ltac r_weak_ n t := rewrite (rewr_weak _ _ (n, t)); [idtac | done | done]; rewrite /=.
-
-
-    (* find arg in n2 that does not appear in n1 *)
-    Ltac r_find_weak n1 n2 k :=
-      ensure_val_at leftc n1 0%N;
-      ensure_val_at leftc n2 1%N;
-      let args1 := get_args_at leftc 0 in
-      let args2 := get_args_at leftc (S 0) in
-      let chk := eval compute in (n2 \in map fst args1) in
-        match chk with
-        | false => fail "reaction value " n2 " not found in " n1
-        | true => 
-        let x := eval compute in (ofind_val args2 (fun x => x \notin args1)) in
-        k x
-        end.
-
-    (* TODO: The below one only works for the general weak rule which holds for everything; I need to implement a rule that uses rewr_hid_ws *)
-    Ltac r_weak n1 n2 :=
-      ensure_val_at leftc n1 0%N;
-      ensure_val_at leftc n2 1%N;
-      ensure_not_bi;
-      r_find_weak n1 n2
-        ltac:(fun p =>
-           let j := eval compute in p in
-           match j with
-           | Some ?p1p2 => r_weak_ constr:(p1p2.1) constr:(p1p2.2); r_weak n1 n2
-           | None => idtac                                                             
-           | _ => idtac "hello" j
-                    end).
-
-    
-
-
-    Ltac ensure_arg_prefix_at a n ns ctr :=
-      match ns with
-      | nil => idtac
-      | (?x :: ?xs) =>
-        arg_move_at x n x ctr; ensure_arg_prefix_at x n xs (S ctr)
-                                          end.
-
-(* Perform a rewrite on the args of n, that they're equal to ns. Used for extracting out a concat and so on. *)
-Ltac rewrite_args_at a n ns :=
-  let heq := fresh "heq" in
-  r_move_at a n 0%N;
-  let ns_old := get_args_at a 0 in
-  let b := get_bool_at a 0 in
-  let val := get_val_at a 0 in
-  assert (heq : (ns_old, b, val) = (ns, b, val)) ; [ done | rewrite (cast_existT heq); have -> : heq = erefl by apply eq_irrelevance; clear heq]; try clear heq; unfold dep_cast; unfold eq_rect .
-  
-
-    (* remove redundant 'm' *)
-    Ltac r_remove m :=
-      r_move m 0%N;
-      etransitivity; [ensure_bi_r; apply (rewr_addrem _ _); done | idtac]; simpl.
-
-    Ltac r_clean :=
-      match goal with
-      | [ |- @r_rewr _ _ _ ?rs _ ] =>
-        let p := eval compute in (ofind_val (RHiddens rs) (fun n => n \notin RArgs _ _ rs) ) in
-            match p with
-              | Some ?n => r_remove n
-              | _ => fail "no more to clean"
-            end
-              end.
-
-  (*
-
-    Ltac r_subst x y :=
-      r_weak y x;
-      r_move y 0%N;
-      let a := get_args1 in
-      let ys := eval compute in (map fst a) in
-      ensure_arg_prefix ys 0%N;
-      arg_focus x;
-      r_move x 0%N; 
-      let b := get_args1 in
-      let xs := eval compute in (map fst b) in
-      rewrite ?lift_det0 ?lift_det1 ?lift_det2 ?lift_det3;
-      let h := get_val0 in
-      let zs := eval compute in (extract_right_cons_cat h a b) in
-      match zs with
-          | None => fail "subst failure"
-          | Some ?z =>
-            etransitivity; [ apply rewr_bi_r; apply: (rewr_subst_eq _ _ _ z); apply erefl | idtac]; simpl
-                                                                                         end.
-
-    Ltac r_str_ := etransitivity; [apply rewr_str; done | idtac].
-
-    (* drop n2 from n1 *)
-    Ltac r_str n1 n2 :=
-      r_move n1 0%N;
-      r_move n2 1%N;
-      arg_focus n2;
-      r_str_.
-
-    Ltac r_str_inp n1 n2 :=
-      r_move n1 0%N;
-      r_move n2 1%N;
-      arg_focus n2;
-      rewrite rewr_str_inp.
-
-    Ltac r_weakstr n1 n2 :=
-      r_weak n1 n2;
-      r_str n1 n2.
-
-    (* rename : rename x to y; requires x is a hidden action *)
-    Ltac r_rename x y := etransitivity; [apply (rewr_rename _ _ _ x y); done | idtac]; simpl.
-
-    (* ext : operates on the first reaction. *)
-    Ltac r_ext m tm :=
-      r_move m 0%N;
-      etransitivity; [apply rewr_bi_r; apply rewr_ext; instantiate (1 := tm); rewrite /React_eq //= | idtac].
-
-  Arguments rbind [N T H ].
-
-  (* if 'm' is a bind, lift the bind to fresh arg 'n' of type 't' *)
-    Ltac unfold_bind0 n midn midty :=
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (_, _, ?to) (mbind ?m ?k)) :: ?rs) _] =>
-      etransitivity; [
-        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind nil nil (midn, midty) to _ _)); done | idtac]
-    end;
-    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
-
-    Ltac unfold_bind1 n midn midty :=
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x => mbind ?m ?k)) :: ?rs) _] =>
-      etransitivity; [
-        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind ns nil (midn, midty) to _ _)); done | idtac]
-    end;
-    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
-
-    Ltac unfold_bind2 n midn midty :=
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y => mbind ?m ?k)) :: ?rs) _] =>
-      etransitivity; [
-        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind ns nil (midn, midty) to _ _)); done | idtac]
-    end;
-    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
-
-    Ltac unfold_bind3 n midn midty :=
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y z => mbind ?m ?k)) :: ?rs) _] =>
-      etransitivity; [
-        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind ns nil (midn, midty) to _ _)); done | idtac]
-    end;
-    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
-
-    Ltac unfold_bind4 n midn midty :=
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) (fun x y z w => mbind ?m ?k)) :: ?rs) _] =>
-      etransitivity; [
-        apply rewr_bi_r; apply: (@rewr_ext _ _ _ _ _ _ _ _ (rbind ns nil (midn, midty) to _ _)); done | idtac]
-    end;
-    etransitivity; [ apply rewr_bi_r; apply rewr_fold; done | idtac]; rewrite /rct /=.
-
-    Ltac unfold_bind n midn midty :=
-    r_move n 0%N;
-    match goal with
-    | [ |- @r_rewr _ _ _ (inl (existT _ (?ns, _, ?to) _) :: _) _] =>
-      match ns with
-        | nil => unfold_bind0 n midn midty
-        | _ :: nil => unfold_bind1 n midn midty
-        | _ :: _ :: nil => unfold_bind2 n midn midty
-        | _ :: _ :: _ :: nil => unfold_bind3 n midn midty
-      end
-        end.
-
-      
-
-
-
-    Ltac r_align_rec rs c :=
-      match rs with
-        | nil => idtac
-        | ?r :: ?rs' =>
-          r_move (chan_of r) c;
-          r_align_rec rs' (S c)
-                      end.
-
-    Ltac r_align :=
-      match goal with
-      | [ |- @r_rewr _ _ _ _ ?rs] => r_align_rec rs 0%N
-                                                 end.
-        
-                  
-
-  (* TODO: fold *)
-
-  (* TODO: dep *)
-
-  (* TODO: comp? *)
-
-  (* TODO: unprod *)
-
-  (* TODO: add *)
 *)
+
+  Check rewr_r_perm.
+  Arguments rewr_r_perm [N T H rs].
+  Ltac arg_move_at a n from to :=
+    let ai := pos_of_at a n in
+    let i := arg_idx_of_at a n from in
+    let j := arg_idx_of_at a n to in
+    apply_bi_at a ltac:(apply: (rewr_r_perm i _ _ (Perm_swap i j _)); apply : erefl); rewrite /swap /=.
+
+
+  Arguments rewr_ext [N T H rs].
+  Check rewr_ext.
+  Ltac r_ext_at a m tm :=
+    let i := pos_of_at a m in
+    apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm); rewrite /React_eq //=]); simpl.
+
+  (* TODO: unfold_bind0 and so on *)
+
+  Ltac unfold_bind1_at a n midn midty :=
+    let i := pos_of_at a n in
+    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind1 _ midn midty)]); rewrite /lset.
+
+    Arguments rewr_fold [N T H rs].
+    (* g0 = first half of partition of context *)
+  Ltac fold_at a n g0 :=
+    let i := pos_of_at a n in
+    apply_bi_at a ltac:(apply: (rewr_fold i g0); [apply: erefl | done]); simpl.
+                       
+    Arguments rewr_pair [N T H rs].
+
+  Ltac pair_at a n0 n1 p :=
+    let i := pos_of_at a n0 in
+    let j := pos_of_at a n1 in
+    apply_bi_at a ltac:(apply: (rewr_pair i j p); [apply: erefl | apply : erefl | done | done]); unfold eq_rect_r; simpl; unfold eq_rect_r; simpl.
+
+    Arguments rewr_subst [N T H rs].
+
+    Ltac subst_at a n0 n1 :=
+      let i := pos_of_at a n0 in
+      let j := pos_of_at a n1 in
+      apply_bi_at a ltac:(apply: (rewr_subst i j); [apply: erefl | apply: erefl]); rewrite /lset /=.
+
+    Arguments rewr_hid_ws [N T H rs].
+
+    Ltac hid_weak_at a n0 n1 :=
+      let i := pos_of_at a n0 in
+      let j := pos_of_at a n1 in
+      apply_bi_at a ltac:(apply: (rewr_hid_ws i j); [apply: erefl | apply: erefl| done]); rewrite /lset /=.
+      
+    Arguments rewr_addrem [N T H rs].
+
+    Ltac remove_at a n :=
+      let i := pos_of_at a n in
+      apply_bi_at a ltac:(apply: (rewr_addrem i); [apply: erefl | done | done]); simpl.
+
+    Arguments rewr_rename [N T H rs].
+
+    Ltac rename_at a n n' :=
+      apply_bi_at a ltac:(apply: (rewr_rename n n'); done); simpl.
+                       
+
+    (* TODO: all the corresponding inverse tactics *)
+
+
+    (* asymmetric tactics *)
+
+    Arguments rewr_weak [N T H rs].
+
+    Ltac weak_at a n0 n1 n ty :=
+      let i := pos_of_at a n0 in
+      let j := pos_of_at a n1 in
+      etransitivity; [apply: (rewr_weak i j (n, ty)); [apply: erefl | apply: erefl | done | done] |]; simpl.
+                       
+
+    Arguments rewr_str [N T H rs].
+
+    (* Thing to get rid of must be in head of context in n *)
+    Ltac str_at a n :=
+      let i := pos_of_at a n in
+      etransitivity; [apply: (rewr_str i); [apply: erefl | done] |]; simpl.
+
+
+    Arguments rewr_str_inp [N T H rs].
+    Ltac inp_str_at a n i_n i_ty :=
+      let i := pos_of_at a n in
+      etransitivity; [apply: (rewr_str_inp i (i_n, i_ty)); [simpl; apply: erefl | done] |]; simpl.

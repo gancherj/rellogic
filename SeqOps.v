@@ -5,7 +5,7 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-
+Require List.
 
 
 Inductive Perm {A : Type} : list A -> list A -> Type :=
@@ -418,4 +418,103 @@ Lemma Perm_rem_cat_l {A : eqType} (xs ys : seq A) x : x \in ys ->
   apply perm_skip.
   apply IHxs.
   done.
+Qed.
+
+(* ***** insert **** *)
+
+(* if n >= len xs, insert appends to end of list *)
+Fixpoint insert {A} (xs : seq A) (n : nat) (x : A) : seq A :=
+  match xs with
+  | nil => x :: nil
+  | y :: xs =>
+    match n with
+    | 0 => x :: y :: xs
+    | S n => y :: insert (xs) n x
+    end
+end.
+
+
+(* Set xs[n] to x. Does nothing if n >= len xs *)
+Fixpoint lset {A} (xs : seq A) (n : nat) (x : A) : seq A :=
+  match xs with
+  | nil => nil
+  | y :: xs =>
+    match n with
+      | 0 => x :: xs
+      | S n => y :: lset xs n x
+    end
+      end.
+
+(* if x < len xs, remove nth element from xs *)
+Fixpoint remove {A} (xs : seq A) (n : nat) : seq A :=
+  match xs, n with
+  | nil, _ => nil
+  | (x :: xs), 0 => xs
+  | (x :: xs), S n => x :: remove xs n
+                        end.
+
+(* if n < len xs, equal to xs[0..n] ++ xs' ++ xs[n+1 ..] *)
+Fixpoint lset_with {A} (xs : seq A) (n : nat) (xs' : seq A) : seq A :=
+  match xs with
+  | nil => nil
+  | y :: xs =>
+    match n with
+    | 0 => xs' ++ xs
+    | S n => y :: lset_with xs n xs'
+    end
+      end.
+
+Lemma lset_lset {A} (xs : seq A) n (x x' : A) :
+  lset (lset xs n x') n x = lset xs n x.
+  move: n.
+  induction xs. 
+  induction n.
+  done.
+  done.
+  intro.
+  simpl.
+  destruct n.
+  done.
+  simpl.
+  rewrite IHxs.
+  done.
+Qed.
+
+Lemma lset_nth_error {A} (xs : seq A) (n : nat) x :
+  List.nth_error xs n = Some x ->
+  xs = lset xs n x.
+  move: n.
+  induction xs.
+  done.
+  induction n.
+  simpl.
+  intro H; injection H; intro; subst; done.
+  simpl.
+  move/IHxs => ->.
+  rewrite lset_lset; done.
+Qed.
+
+Require Import Lia.
+
+Lemma ltSnSn n n' :
+  (n.+1 < n'.+1) = (n < n').
+  apply Bool.eq_true_iff_eq; split; move/leP => h; apply/leP; lia.
+Qed.
+
+Lemma nth_error_lset {A} (xs : seq A) (n : nat) x :
+  n < size xs ->
+  List.nth_error (lset xs n x) n = Some x.
+  move: n.
+  induction xs.
+  simpl.
+  done.
+  simpl.
+  intro.
+  move/ltP => H.
+  induction n.
+  simpl.
+  done.
+  simpl.
+  apply IHxs.
+  apply/ltP; lia.
 Qed.
