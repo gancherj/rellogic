@@ -422,65 +422,252 @@ Qed.
 
 (* ***** insert **** *)
 
-(* if n >= len xs, insert appends to end of list *)
+    Require Import Lia.
+
+    Ltac slia :=
+    match goal with
+        | [ |- (_ < _) = true -> _] => move/ltP; intro; slia
+        | [ |- is_true (_ < _) -> _] => move/ltP; intro; slia
+        | [ H : is_true (_ < _) |- _] => move/ltP: H => H; slia
+        | [ H : (_ < _) = true |- _] => move/ltP: H => H; slia
+        | [ |- is_true (_ < _)] => apply/ltP; slia
+        | [ |- (_ < _) = true] => apply/ltP; slia
+        | [ |- (_ <= _) = true -> _] => move/leP; intro; slia
+        | [ |- is_true (_ <= _) -> _] => move/leP; intro; slia
+        | [ H : is_true (_ <= _) |- _] => move/leP: H => H; slia
+        | [ H : (_ <= _) = true |- _] => move/leP: H => H; slia
+        | [ |- is_true (_ <= _)] => apply/leP; slia
+        | [ |- (_ <= _) = true] => apply/leP; slia
+        | _ => try lia
+                end.
+
+Section Surgery.
+
+
+Lemma ltSnSn n n' :
+  (n.+1 < n'.+1) = (n < n').
+  apply Bool.eq_true_iff_eq; split; slia.
+Qed.
+
+
+(* inserts into list. if n >= size xs, appends to end *)
 Fixpoint insert {A} (xs : seq A) (n : nat) (x : A) : seq A :=
-  match xs with
-  | nil => x :: nil
-  | y :: xs =>
     match n with
-    | 0 => x :: y :: xs
-    | S n => y :: insert (xs) n x
+    | 0 => x :: xs
+    | S n =>
+    match xs with
+        | y :: ys => y :: insert ys n x
+        | nil => x :: nil
     end
-end.
+        end.
 
+Lemma size_insert {A} (xs : seq A) n x :
+    size (insert xs n x) = S (size xs).
+    move: xs; induction n.
+    by destruct xs.
+    induction xs.
+    done.
+    simpl.
+    rewrite IHn //=.
+Qed.
 
-(* Set xs[n] to x. Does nothing if n >= len xs *)
-Fixpoint lset {A} (xs : seq A) (n : nat) (x : A) : seq A :=
-  match xs with
-  | nil => nil
-  | y :: xs =>
-    match n with
-      | 0 => x :: xs
-      | S n => y :: lset xs n x
-    end
-      end.
+Lemma nth_error_insert {A} (xs : seq A) n x :
+    n < (S (size xs)) ->
+    List.nth_error (insert xs n x) n = Some x.
+    move: n; induction xs.
+    simpl.
+    destruct n.
+    done.
+    induction n.
+    done.
+    done.
+    induction n.
+    simpl.
+    done.
+    simpl.
+    intro; rewrite IHxs //=.
+Qed.
+
+Lemma insert_0 {A} (xs : seq A) (x : A) :
+insert xs 0 x = x :: xs.
+induction xs; done.
+Qed.
+
+Fixpoint insert_seq {A} (xs : seq A) (n : nat) (xs' : seq A) :=
+match xs' with
+| nil => xs
+| x :: xs'' =>
+    insert_seq (insert xs n x) n xs''
+                end.
 
 (* if x < len xs, remove nth element from xs *)
 Fixpoint remove {A} (xs : seq A) (n : nat) : seq A :=
-  match xs, n with
-  | nil, _ => nil
-  | (x :: xs), 0 => xs
-  | (x :: xs), S n => x :: remove xs n
+  match n, xs with
+  | _, nil => nil
+  | 0, (x :: xs) => xs
+  | S n, (x :: xs) => x :: remove xs n
                         end.
 
-(* if n < len xs, equal to xs[0..n] ++ xs' ++ xs[n+1 ..] *)
-Fixpoint lset_with {A} (xs : seq A) (n : nat) (xs' : seq A) : seq A :=
-  match xs with
-  | nil => nil
-  | y :: xs =>
-    match n with
-    | 0 => xs' ++ xs
-    | S n => y :: lset_with xs n xs'
-    end
-      end.
-
-Lemma lset_lset {A} (xs : seq A) n (x x' : A) :
-  lset (lset xs n x') n x = lset xs n x.
-  move: n.
-  induction xs. 
-  induction n.
+Lemma remove_oob {A} (xs : seq A) n :
+  n >= size xs ->
+  remove xs n = xs.
+  move: xs; induction n.
+  induction xs.
   done.
   done.
+  induction xs.
+  done.
+  simpl.
   intro.
-  simpl.
-  destruct n.
-  done.
-  simpl.
-  rewrite IHxs.
+  rewrite IHn //=.
+Qed. 
+
+Lemma size_remove {A} (xs : seq A) n :
+  n < size xs ->
+  size (remove xs n) = predn (size xs).
+  move: xs; induction n.
+  induction xs; done.
+  induction xs; rewrite //=.
+  rewrite ltSnSn => h; rewrite IHn.
+  destruct (size xs); done.
   done.
 Qed.
 
+Fixpoint remove_range {A} (xs : seq A) from len :=
+  match len with
+    | 0 => xs
+    | S l => remove_range (remove xs from) from l
+                           end.
+
+Lemma remove_insert {A} (xs : seq A) n x :
+  n < size xs ->
+  remove (insert xs n x) n = xs.
+  move: n; induction xs.
+  induction n; rewrite //=.
+  destruct n.
+  done.
+  simpl.
+  rewrite ltSnSn => h.
+  rewrite IHxs //=.
+Qed.
+
+Lemma insert_remove_eq {A} (xs : seq A) n x :
+  n < size xs ->
+  List.nth_error xs n = Some x ->
+  insert (remove xs n) n x = xs.
+  move: n; induction xs.
+  done.
+  simpl.
+  induction n.
+  simpl.
+  move => _ h; injection h => ->; destruct xs; done.
+  simpl.
+  rewrite ltSnSn => h h'.
+  rewrite IHxs //=.
+Qed.
+
+Lemma insert_removeC {A} (xs : seq A) n x :
+  n < size xs ->
+  List.nth_error xs n = Some x ->
+  insert (remove xs n) n x =
+  remove (insert xs n x) n.
+  intros.
+  rewrite insert_remove_eq.
+  rewrite remove_insert.
+  done.
+  done.
+  done.
+  done.
+Qed.
+
+Lemma insert2_remove2 {A} (xs : seq A) pos x y :
+  List.nth_error xs pos = Some x ->
+  List.nth_error xs (S pos) = Some y ->
+  insert (insert (remove (remove xs pos) pos) pos y) pos x = xs.
+  move : xs.
+  induction pos.
+  destruct xs.
+  done.
+  destruct xs.
+  done.
+  simpl.
+  rewrite !insert_0.
+  move => h1 h2; injection h1; injection h2 => -> ->; done.
+  destruct xs.
+  done.
+  simpl.
+  destruct xs.
+  done.
+  intros.
+  rewrite (IHpos (a0 :: xs)).
+  done.
+  done.
+  done.
+Qed.
+  
+
+Definition lset {A} (xs : seq A) (n : nat) (x : A) :=
+  if n < size xs then
+  insert (remove xs n) n x else xs.
+
+Lemma lset_0_cons {A} (xs : seq A) x y :
+  lset (x :: xs) 0 y = y :: xs.
+  rewrite /lset.
+  rewrite ltn0Sn.
+  rewrite insert_0 //=.
+Qed.
+
+Lemma lset_Sn_cons {A} (xs : seq A) x y n :
+  lset (x :: xs) (S n) y = x :: lset xs n y.
+rewrite /lset.
+simpl.
+rewrite ltSnSn.
+destruct (n < size xs); done.
+Qed.
+
+(* if n < len xs, equal to xs[0..n] ++ xs' ++ xs[n+1 ..] *)
+Definition  lset_seq {A} (xs : seq A) (n : nat) (xs' : seq A) : seq A :=
+  insert_seq (remove xs n) n xs'.
+
+Lemma insert_seq_Sn_cons {A} (xs : seq A) x n ys :
+  insert_seq (x :: xs) n.+1 ys =
+  x :: insert_seq xs n ys.
+  move: n xs; induction ys.
+  done.
+  simpl.
+  intros.
+  rewrite IHys.
+  done.
+Qed.
+
+Lemma lset_seq_Sn_cons {A} (xs : seq A) x ys n :
+  lset_seq (x :: xs) (S n) ys =
+  x :: lset_seq xs n ys.
+  rewrite /lset_seq.
+  simpl.
+  rewrite insert_seq_Sn_cons //=.
+Qed.
+
+
+Lemma lset_lset {A} (xs : seq A) n (x x' : A) :
+  n < size xs ->
+  lset (lset xs n x') n x = lset xs n x.
+  move: xs; induction n.
+  induction xs.
+  simpl.
+  rewrite /lset //=.
+  simpl.
+  intro.
+  rewrite !lset_0_cons //=.
+  induction xs.
+  done.
+  simpl; rewrite ltSnSn => h.
+  rewrite !lset_Sn_cons //=.
+  rewrite IHn //=.
+Qed.
+
 Lemma lset_nth_error {A} (xs : seq A) (n : nat) x :
+  n < size xs ->
   List.nth_error xs n = Some x ->
   xs = lset xs n x.
   move: n.
@@ -488,33 +675,73 @@ Lemma lset_nth_error {A} (xs : seq A) (n : nat) x :
   done.
   induction n.
   simpl.
-  intro H; injection H; intro; subst; done.
+  intro.
+  intro H'; injection H'; intro; subst.
+  rewrite lset_0_cons //=.
   simpl.
+  rewrite ltSnSn => h.
   move/IHxs => ->.
-  rewrite lset_lset; done.
+  rewrite lset_Sn_cons lset_lset //=.
+  done.
 Qed.
 
-Require Import Lia.
-
-Lemma ltSnSn n n' :
-  (n.+1 < n'.+1) = (n < n').
-  apply Bool.eq_true_iff_eq; split; move/leP => h; apply/leP; lia.
-Qed.
-
-Lemma nth_error_lset {A} (xs : seq A) (n : nat) x :
+Lemma nth_error_lset {A} (xs : seq A) (n m : nat) x :
   n < size xs ->
-  List.nth_error (lset xs n x) n = Some x.
-  move: n.
+  List.nth_error (lset xs n x) m = if n == m then Some x else List.nth_error xs m.
+  move: m n.
   induction xs.
   simpl.
   done.
+  induction m.
+  induction n.
   simpl.
-  intro.
-  move/ltP => H.
+  rewrite /lset /= insert_0; done.
+  simpl.
+  rewrite lset_Sn_cons.
+  done.
+  induction n.
+  simpl.
+  rewrite /lset /=.
+  rewrite insert_0.
+  done.
+  simpl.
+  rewrite ltSnSn => h.
+  rewrite lset_Sn_cons.
+  rewrite IHxs.
+  rewrite /eq_op //=.
+  done.
+Qed.
+
+Lemma nth_error_remove {A} (xs : seq A) n m :
+  n < size xs ->
+  List.nth_error (remove xs n) m = if m < n then List.nth_error xs m else List.nth_error xs m.+1.
+  move: m n.
+  induction xs.
+  done.
   induction n.
   simpl.
   done.
   simpl.
-  apply IHxs.
-  apply/ltP; lia.
+  rewrite ltSnSn => h.
+  destruct m.
+  done.
+  simpl.
+  rewrite IHxs.
+  rewrite ltSnSn.
+  destruct (m < n).
+  done.
+  destruct xs; done.
+  done.
 Qed.
+
+End Surgery.
+
+
+(*
+      List.nth_error rs pos = Some (G1 ~> h false r) ->
+      List.nth_error rs (S pos) = Some (h :: G1 ++ G2 ~> n b k) -> rs <~~> insert (remove (remove rs pos) pos) pos (G1 ++ G2 ~> n b (rbind G1 G2 h n r k )).
+
+       List.nth_error rs pos = Some (G1 ++ G2 ~> n b rbind G1 G2 h n r k) ->
+       rs <~~> lset_with rs pos [:: G1 ~> h false r; h :: G1 ++ G2 ~> n b k]
+*)
+

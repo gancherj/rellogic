@@ -272,7 +272,7 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
   | rewr_fold : forall rs pos  G1 G2 h (r : Reaction G1 h) n (k : (denomT h.2 -> Reaction (G1 ++ G2) n)) (b : bool) ,
       List.nth_error rs pos = Some ((G1 ++ G2) ~> n b (rbind r k)) ->
       h.1 \notin RChans rs ->
-      r_rewr_bi rs (lset_with rs pos [:: (G1 ~> h false r); ((h :: (G1 ++ G2)) ~> n b k)])
+      r_rewr_bi rs (lset_seq rs pos [:: (G1 ~> h false r); ((h :: (G1 ++ G2)) ~> n b k)])
   | rewr_pair : forall rs (n1 n2 : nat) (n' : N) (r1 r2 : reaction),
       List.nth_error rs n1 = Some (inl r1) ->
       List.nth_error rs n2 = Some (inl r2) ->

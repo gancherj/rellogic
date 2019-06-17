@@ -147,14 +147,138 @@ Section Lems.
       intros.
       symmetry.
       have heq: rs = lset (lset rs n (g ~> f b r)) n (c :: g ~> f b (fun _ => r)).
-        rewrite lset_lset; apply lset_nth_error; done.
+        rewrite lset_lset //=; apply lset_nth_error; done.
       rewrite {2}heq.
       apply rewr_add_ch.
       rewrite nth_error_lset.
+      rewrite eq_refl.
       done.
       done.
       done.
     Qed.
+    (* rewr_fold_rev *)
+
+    Lemma ltn_pred n m :
+      (n < m.-1) = (n.+1 < m).
+      move: n; induction m.
+      simpl.
+      done.
+      simpl.
+      intro.
+      rewrite ltSnSn //=.
+    Qed.
+
+    Lemma rewr_fold_rev_aux : forall {A} (xs : seq A) pos x1 x2 x3,
+            List.nth_error xs pos = Some x1 ->
+            List.nth_error xs pos.+1 = Some x2 ->
+            pos < predn (size xs) ->
+            xs = lset_seq (lset (remove xs pos.+1) pos x3) pos [:: x1; x2].
+      admit.
+    Admitted.
+
+    Lemma rewr_fold_rev (rs : rlist N T) (pos : nat) G1 G2 h (r : Reaction G1 h) n b k :
+      pos < (size rs).-1 ->
+      h.1 \notin RChans (lset (remove rs (succn pos)) pos (G1 ++ G2 ~> n b rbind G1 G2 h n r k)) ->
+      List.nth_error rs pos = Some (G1 ~> h false r) ->
+      List.nth_error rs (S pos) = Some (h :: G1 ++ G2 ~> n b k) ->
+      rs <~~> lset (remove rs pos.+1) pos (G1 ++ G2 ~> n b (rbind G1 G2 h n r k )).
+      intros; symmetry.
+      set rs' := lset (remove rs pos.+1) pos (G1 ++ G2 ~> n b rbind G1 G2 h n r k).
+      have h1: rs = lset_seq rs' pos [:: G1 ~> h false r; h :: G1 ++ G2 ~> n b k].
+        apply rewr_fold_rev_aux; done.
+      rewrite h1.
+      apply: rewr_fold.
+      unfold rs'.
+      rewrite nth_error_lset.
+      rewrite eq_refl.
+      done.
+      rewrite size_remove.
+      done.
+      rewrite -ltn_pred //=.
+      unfold rs'; done.
+    Qed.
+
+    Check rewr_subst.
+
+    Lemma rewr_subst_rev (rs : rlist N T) pos1 pos2 ns ns' b1 b2 h f (r : detReaction N T ns h) k :
+      pos2 != pos1 ->
+      pos2 < size rs ->
+      List.nth_error rs pos1 = Some (ns ~> h b1 (lift_det ns h r)) ->
+      List.nth_error rs pos2 = Some (h :: ns ++ ns' ~> f b2 (detReaction_subst N T r k)) ->
+      rs <~~> lset rs pos2 (h :: ns ++ ns' ~> f b2 k).
+      intros; symmetry.
+      have h1: rs = lset (lset rs pos2 (h :: ns ++ ns' ~> f b2 k)) pos2 (h :: ns ++ ns' ~> f b2 (detReaction_subst N T r k)).
+        rewrite lset_lset.
+        apply lset_nth_error.
+        done.
+        done.
+        done.
+      rewrite {2}h1.
+      apply: rewr_subst.
+      instantiate (2 := pos1).
+      rewrite nth_error_lset.
+      rewrite (negbTE H0).
+      apply H2.
+      done.
+      rewrite nth_error_lset.
+      rewrite eq_refl //=.
+      done.
+      Qed.
+
+    Check rewr_hid_ws.
+
+    Lemma rewr_hid_ws_rev (rs : rlist N T) pos1 pos2 g1 g2 h d c (d' : Reaction g2 c) b :
+      pos2 != pos1 ->
+      pos2 < size rs ->
+      List.nth_error rs pos1 = Some (g1 ~> h false d) ->
+      List.nth_error rs pos2 = Some (h :: g2 ~> c b (fun _ => d')) ->
+      all (fun x => x \in g2) g1 ->
+      rs <~~> lset rs pos2 (g2 ~> c b d').
+      intros; symmetry.
+      have h1 : rs = lset (lset rs pos2 (g2 ~> c b d')) pos2 (h :: g2 ~> c b (fun _ => d')).
+        rewrite lset_lset.
+        apply lset_nth_error.
+        done.
+        apply H3.
+        done.
+      rewrite {2}h1.
+      apply: rewr_hid_ws.
+      rewrite nth_error_lset.
+      instantiate (3 := pos1).
+      rewrite (negbTE H0).
+      apply H2.
+      done.
+      rewrite nth_error_lset.
+      rewrite eq_refl //=.
+      done.
+      done.
+    Qed.
+
+    Check rewr_addrem.
+
+    Lemma rewr_addrem_rev (rs : rlist N T) h g1 (r : Reaction g1 h) pos:
+    pos < size rs ->
+    all (fun x => x \in RChans rs) (map fst g1) ->
+    h.1 \notin RChans rs ->
+    rs <~~> insert rs pos (g1 ~> h false r).
+      intros; symmetry.
+      Check rewr_addrem.
+      have heq: rs = remove (insert rs pos (g1 ~> h false r)) pos.
+        rewrite remove_insert //=.
+      rewrite {2}heq.
+      apply: rewr_addrem.
+      rewrite nth_error_insert.
+      apply: erefl.
+      slia.
+      apply/allP => x Hx.
+      rewrite remove_insert.
+      apply (allP H1); done.
+      done.
+      rewrite remove_insert.
+      done.
+      done.
+   Qed.
+
 
 End Lems.
 
