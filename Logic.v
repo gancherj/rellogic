@@ -46,7 +46,7 @@ Section RDef.
   apply (fun a => lift_det _ _ (r a)).
   Defined.
 
-  Definition rbind {ns} {ns'} {n n'} (r : Reaction ns n) (k : denomT n.2 -> Reaction (ns ++ ns') n') : Reaction (ns ++ ns') n'.
+  Definition rbind_def {ns} {ns'} {n n'} (r : Reaction ns n) (k : denomT n.2 -> Reaction (ns ++ ns') n') : Reaction (ns ++ ns') n'.
     induction ns; simpl in *.
     induction ns'; simpl in *.
     apply (mbind r k).
@@ -56,6 +56,10 @@ Section RDef.
     apply r; apply X.
     apply (fun n2 => k n2 X).
   Defined.
+
+  Definition rbind {ns} {ns'} {n n'} (r : Reaction ns n) (k : denomT n.2 -> Reaction (ns ++ ns') n') :=
+    locked (rbind_def r k).
+
 
 
   Fixpoint detReaction_subst {ns ns'} {n n'} (r : detReaction ns n) (k : Reaction (n :: (ns ++ ns')) n')  {struct ns}

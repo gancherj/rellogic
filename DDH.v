@@ -82,17 +82,18 @@ Definition ddh1 : rl :=
 Definition ElGamal_real : rl :=
     [:: [::] ~> ("x", tyZq) hid (x <- munif [finType of 'Z_q]; ret x);
        [:: ("x", tyZq)] ~> ("pk", tyG) dvis ((fun x  => (exp x)%g));
-       inr "m";
+       inr ("m", tyG);
        [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
        [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis
                                                                (fun x y pk m => (exp y, (exp (Zp_mul x y)) * m))%fcg
                                                                ].
+
 Definition ElGamal_ideal : rl :=
   [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
      [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
     [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
     [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
-    inr "m";
+    inr ("m", tyG);
     [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
                                                                                (exp y, (exp z))%g)].
 
@@ -101,16 +102,16 @@ Definition eg1 : rl :=
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
-     inr "m";
+     inr ("m", tyG);
      [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
      [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
 
 Definition eg1_factor : rl :=
-  [:: inr "samp"; 
+  [:: inr ("samp", tyPair (tyPair tyG tyG) tyG); 
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
-     inr "m";
+     inr ("m", tyG);
      [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
      [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
 
@@ -119,7 +120,7 @@ Definition eg2 : rl :=
      [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
     [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
     [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
-    inr "m";
+    inr ("m", tyG);
     [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
                                                                                (exp y, (exp z) * m)%fcg)].
 
@@ -129,106 +130,77 @@ Definition eg2 : rl :=
 
   Arguments rbind [N T H ].
   
-Lemma eg_step1 : r_rewr ElGamal_real eg1.
+Lemma eg_step1 : ElGamal_real ~~> eg1.
   rewrite /ElGamal_real /eg1.
-  rewrite_args_at leftc "c" ([:: ("x", tyZq)] ++ [:: ("y", tyZq); ("pk", tyG); ("m", tyG)])%SEQ.
-  done.
-  rewrite (cast_existT heq).
-  have -> : heq = erefl by apply eq_irrelevance.
-  clear heq.
-  move: heq.
-
-  move/eq_irrelevance.
-  done.
-  rewrite (cast_existT heq).
-
-  Ltac delay t := (fun _ => t).
-  Ltac force t := t constr:(tt).
-  Tactic Notation "r_right" tactic(t) := eapply rewr_r_l; [ force (fun _ => t); reflexivity | idtac ].
-  r_right (r_move "samp" 1).
-  trythis ltac:((fun _ => r_move "samp" 1)).
-
-  eapply rewr_r_l; r.
-  r_move "samp" 1.
-  reflexivity.
-  r_right idtac.
-  r_ext "c" (fun x y (pk : denomT tyG) m => gxy <- ret (exp (Zp_mul x y)); ret (exp y, gxy * m)%fcg).
-  intros; msimp; done.
-  unfold_bind4 "c" "gxy" tyG.
-  r_str "c" "x".
-  r_ext "c" (fun xgy (y : denomT tyZq) (pk : denomT tyG) m => gy <- ret (exp y); ret (gy, xgy * m)%fcg).
-  intros; msimp; done.
-  unfold_bind4 "c" "gy" tyG.
-  r_str "c" "y".
-  r_ext "pk" (fun x => gx <- ret (exp x); ret gx).
-  intros; msimp; done.
-  unfold_bind1 "pk" "gx" tyG.
-  r_str "pk" "x".
-    rewrite bind_ret.
-  r_weakstr "gxy" "pk".
-  r_str_inp "gxy" "m".
-  r_weakstr "gxy" "gx".
-  r_weakstr "gy" "gxy".
-  r_weakstr "gy" "x".
-  r_weakstr "gy" "pk".
-  r_weakstr "gy" "gx".
-  r_str_inp "gy" "m".
-  r_prod "gy" "gxy" "gy_gxy".
-    rewrite /eq_rect_r //=.
-  r_str "gxy" "x".
-  r_str "gxy" "y".
-  r_weakstr "gy" "y". 
-  r_move "y" 0.
-  r_move "gy_gxy" 0.
-  arg_focus "y".
-  r_move "gy_gxy" 1.
-  rewrite fold_bind01; [idtac | done | done].
   simpl.
-  r_prod "gx" "gy_gxy" "gx_gy_gxy".
-  rewrite /eq_rect_r //=.
-  r_weakstr "gy_gxy" "x".
-  r_weakstr "gy" "x".
-  r_weakstr "gx" "x".
-  r_move "x" 0.
-  r_move "gx_gy_gxy" 1.
-  rewrite fold_bind00; [idtac | done | done].
-  r_ext "gx_gy_gxy" (p <- (x <- munif [finType of 'Z_q]; y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y))); ret (p.2, p.1.2, p.1.1)).
-  msimp.
-  done.
-  unfold_bind0 "gx_gy_gxy" "samp" (tyPair (tyPair tyG tyG) tyG).
-  r_subst "gy_gxy" "gxy".
-  r_str "gxy" "gy_gxy".
-  r_subst "gy_gxy" "gy".
-  r_str "gy" "gy_gxy".
-  r_clean.
-  r_subst "gx_gy_gxy" "gy".
-  r_str "gy" "gx_gy_gxy".
-  r_subst "gx_gy_gxy" "gx".
-  r_str "gx" "gx_gy_gxy".
-  r_subst "gx_gy_gxy" "gxy".
-  r_str "gxy" "gx_gy_gxy".
-  r_clean.
-  r_rename "gx" "X".
-  r_rename "gy" "Y".
-  r_rename "gxy" "Z".
-  r_align.
+  unfold_bind0_at rightc "samp" "samp1" tyZq.
+  unfold_at_with rightc "samp" (nil : seq (string * ty)).
+  unfold_bind1_at rightc "samp" "samp2" tyZq.
+  unfold_at rightc "samp".
+  rewrite lift_det2.
+  hid_weak_at rightc "samp1" "X".
+  hid_weak_at rightc "samp2" "X".
+  arg_move_at rightc "X" 2 0.
+  subst_at rightc "samp" "X".
+  hid_str_at rightc "samp" "X".
+  hid_str_at rightc "samp2" "X".
+  hid_weak_at rightc "samp1" "pk".
+  arg_move_at rightc "pk" "X" 0.
+  subst_at rightc "X" "pk".
+  hid_str_at rightc "X" "pk".
+  remove_at rightc "X".
+  rename_at rightc "samp1" "x".
+  hid_str_at rightc "x" "samp2".
+  hid_weak_at rightc "samp2" "Y".
+  hid_weak_at rightc "x" "Y".
+  arg_move_at rightc "Y" "samp" 0.
+  arg_move_at rightc "Y" "samp2" 1.
+  subst_at rightc "samp" "Y".
+  hid_str_at rightc "samp" "Y".
+  hid_str_at rightc "x" "Y".
+  hid_weak_at rightc "samp2" "c".
+  arg_move_at rightc "c" "Y" 0.
+  subst_at rightc "Y" "c".
+  hid_str_at rightc "Y" "c".
+  remove_at rightc "Y".
+  rename_at rightc "samp2" "y".
+  arg_move_at rightc "c" "Z" 0.
+  hid_weak_at rightc "x" "c".
+  hid_weak_at rightc "samp" "c".
+  arg_move_at rightc "c" "Z" 0.
+  subst_at rightc "Z" "c".
+  hid_str_at rightc "Z" "c".
+  remove_at rightc "Z".
+  arg_move_at rightc "c" "y" 1.
+  arg_move_at rightc "c" "x" 2.
+  subst_at rightc "samp" "c".
+  hid_str_at rightc "samp" "c".
+  remove_at rightc "samp".
+  r_move_at rightc "x" 0.
+  r_move_at rightc "pk" 1.
+  r_move_at rightc "m" 2.
+  r_move_at rightc "y" 3.
+  r_move_at rightc "c" 4.
+  arg_move_at rightc "c" "x" 0.
+  rewrite bind_ret.
   reflexivity.
 Qed.
+
 
 Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
-  r_move 0 6.
-  apply rewr_refl.
+  r_move_at leftc 0 6.
+  reflexivity.
 Qed.
 
+(* TODO here *)
 
-
-Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2..
-  r_move 6 0.
-  unfold_bind0 "samp" "x" tyZq.
-  r_move "samp" 0.
-  unfold_bind1 "samp" "y" tyZq.
-  r_move "samp" 0.
-  unfold_bind2 "samp" "z" tyZq.
+Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
+  r_move_at leftc 6 0.
+  unfold_bind0_at leftc "samp" "x" tyZq.
+  unfold_at leftc "samp".
+  unfold_bind1_at leftc "samp" "y" tyZq.
+  unfold_at leftc "samp".
+  unfold_bind2_at leftc "samp" "z" tyZq.
   r_weak "X" "samp".
   r_subst "samp" "X".
   r_str "X" "samp".

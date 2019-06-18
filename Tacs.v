@@ -124,18 +124,18 @@ Section Lems.
     Qed.
 
 
-    Lemma lift_bind t f (m : meas (denomT t)) (k : denomT t -> meas (denomT f.2)) (n : N) :
+    Lemma lift_bind (n : N) t f (m : meas (denomT t)) (k : denomT t -> meas (denomT f.2)) :
       @React_eq _ _ _ nil f (mbind m k) (rbind nil nil (n,t) f m k).
+      unlock rbind.
       rewrite /rbind //=.
     Qed.
 
     Lemma lift_bind1 (p : N * T) (n : N) t f (m : denomT p.2 -> meas (denomT t)) (k : denomT p.2 -> denomT t -> meas (denomT f.2)) :
       @React_eq _ _ _ [:: p] f (fun x => mbind (m x) (k x))
                                (rbind [:: p] nil (n,t) f m (fun n2 p2 => k p2 n2)).
+      unlock rbind.
       rewrite /rbind //=.
     Qed.
-
-
 
     (* **** reverse lemmas **** *)
 
@@ -173,6 +173,17 @@ Section Lems.
             List.nth_error xs pos.+1 = Some x2 ->
             pos < predn (size xs) ->
             xs = lset_seq (lset (remove xs pos.+1) pos x3) pos [:: x1; x2].
+      induction xs.
+      destruct pos; done.
+      induction pos.
+      destruct xs.
+      done.
+      simpl.
+      move => x1 x2 x3.
+      inj.
+      inj.
+      rewrite !lset_0_cons.
+
       admit.
     Admitted.
 
@@ -331,6 +342,23 @@ Ltac get_tag_at a x :=
   let n := pos_of_at a x in
   let rs := get_rs_at a in
   get_tag_at_rec n rs.
+
+Ltac get_dist_at_rec n rs :=
+  match n with
+  | 0%N => match rs with
+           | (inl (@existT _ _ _ ?D) :: _) => D
+           end
+  | S ?n' =>
+    match rs with
+    | (_ :: ?rs') => get_dist_at_rec n' rs'
+    end
+  end.
+
+Ltac get_dist_at a x :=
+  let n := pos_of_at a x in
+  let rs := get_rs_at a in
+  get_dist_at_rec n rs.
+
       
 Ltac get_args_at a n :=
   let p := get_tag_at a n in
@@ -350,6 +378,7 @@ Ltac get_val_at a n :=
   match p with
   | (_, _, ?v) => v
                 end.
+
 
   (* n may be either a nat or a name; if a nat, return the nat; if something else, find the index of the argument that matches the name in the first reaction *)
   Ltac arg_idx_of_at a y n :=
@@ -440,7 +469,7 @@ Ltac get_val_at a n :=
     let ai := pos_of_at a n in
     let i := arg_idx_of_at a n from in
     let j := arg_idx_of_at a n to in
-    apply_bi_at a ltac:(apply: (rewr_r_perm i _ _ (Perm_swap i j _)); apply : erefl); rewrite /swap /=.
+    apply_bi_at a ltac:(apply: (rewr_r_perm ai _ _ (Perm_swap i j _)); apply : erefl); rewrite /swap /lset /=.
 
 
   Arguments rewr_ext [N T H rs].
@@ -451,16 +480,28 @@ Ltac get_val_at a n :=
 
   (* TODO: unfold_bind0 and so on *)
 
+  Check lift_bind.
+  Check lift_bind1.
+  Ltac unfold_bind0_at a n midn midty :=
+    let i := pos_of_at a n in
+    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind midn midty)]); rewrite /lset //=.
+
+
   Ltac unfold_bind1_at a n midn midty :=
     let i := pos_of_at a n in
-    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind1 _ midn midty)]); rewrite /lset.
+    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind1 _ midn midty)]); rewrite /lset //=.
 
     Arguments rewr_fold [N T H rs].
     (* g0 = first half of partition of context *)
-  Ltac fold_at a n g0 :=
+  Ltac unfold_at_with a n g0 :=
     let i := pos_of_at a n in
-    apply_bi_at a ltac:(apply: (rewr_fold i g0); [apply: erefl | done]); simpl.
-                       
+    apply_bi_at a ltac:(apply: (rewr_fold i g0); [apply: erefl | done]); unfold lset_seq; simpl.
+
+  Ltac unfold_at a n :=
+    let d := get_dist_at a n in
+    match d with
+    | rbind ?g _ _ _ _ _ => unfold_at_with a n g
+                                           end.
     Arguments rewr_pair [N T H rs].
 
   Ltac pair_at a n0 n1 p :=
@@ -470,6 +511,7 @@ Ltac get_val_at a n :=
 
     Arguments rewr_subst [N T H rs].
 
+    (* substitute n0 in n1. note that the arguments of n1 MUST be n0 :: args of n0 *)
     Ltac subst_at a n0 n1 :=
       let i := pos_of_at a n0 in
       let j := pos_of_at a n1 in
@@ -477,11 +519,20 @@ Ltac get_val_at a n :=
 
     Arguments rewr_hid_ws [N T H rs].
 
+    (* add n0 to n1 *)
     Ltac hid_weak_at a n0 n1 :=
       let i := pos_of_at a n0 in
       let j := pos_of_at a n1 in
       apply_bi_at a ltac:(apply: (rewr_hid_ws i j); [apply: erefl | apply: erefl| done]); rewrite /lset /=.
       
+    (* remove n0 from n1 *)
+    Ltac hid_str_at a n0 n1 :=
+      arg_move_at a n1 n0 0; (* n0 must be at head of arguments to n1 *)
+      let i := pos_of_at a n0 in
+      let j := pos_of_at a n1 in
+      apply_bi_at a ltac:(apply: (rewr_hid_ws_rev _ i j); [done | done | apply: erefl | apply: erefl | done]); rewrite /lset /=.
+
+    
     Arguments rewr_addrem [N T H rs].
 
     Ltac remove_at a n :=
