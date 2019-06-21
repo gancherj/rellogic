@@ -137,6 +137,13 @@ Section Lems.
       rewrite /rbind //=.
     Qed.
 
+    Lemma lift_bind2 (p1 p2 : N * T) (n : N) t f (m : denomT p1.2 -> denomT p2.2 -> meas (denomT t)) (k : denomT p1.2 -> denomT p2.2 -> denomT t -> meas (denomT f.2)) :
+      @React_eq _ _ _ [:: p1; p2] f (fun x y => mbind (m x y) (k x y))
+                               (rbind [:: p1; p2] nil (n,t) f m (fun n2 p1 p2 => k p1 p2 n2)).
+      unlock rbind.
+      rewrite /rbind //=.
+    Qed.
+
     (* **** reverse lemmas **** *)
 
     Lemma rewr_add_ch_rev (rs : rlist N T) b g f (r : Reaction g f) n (c : N * T):
@@ -167,49 +174,6 @@ Section Lems.
       intro.
       rewrite ltSnSn //=.
     Qed.
-
-    Lemma rewr_fold_rev_aux : forall {A} (xs : seq A) pos x1 x2 x3,
-            List.nth_error xs pos = Some x1 ->
-            List.nth_error xs pos.+1 = Some x2 ->
-            pos < predn (size xs) ->
-            xs = lset_seq (lset (remove xs pos.+1) pos x3) pos [:: x1; x2].
-      induction xs.
-      destruct pos; done.
-      induction pos.
-      destruct xs.
-      done.
-      simpl.
-      move => x1 x2 x3.
-      inj.
-      inj.
-      rewrite !lset_0_cons.
-
-      admit.
-    Admitted.
-
-    Lemma rewr_fold_rev (rs : rlist N T) (pos : nat) G1 G2 h (r : Reaction G1 h) n b k :
-      pos < (size rs).-1 ->
-      h.1 \notin RChans (lset (remove rs (succn pos)) pos (G1 ++ G2 ~> n b rbind G1 G2 h n r k)) ->
-      List.nth_error rs pos = Some (G1 ~> h false r) ->
-      List.nth_error rs (S pos) = Some (h :: G1 ++ G2 ~> n b k) ->
-      rs <~~> lset (remove rs pos.+1) pos (G1 ++ G2 ~> n b (rbind G1 G2 h n r k )).
-      intros; symmetry.
-      set rs' := lset (remove rs pos.+1) pos (G1 ++ G2 ~> n b rbind G1 G2 h n r k).
-      have h1: rs = lset_seq rs' pos [:: G1 ~> h false r; h :: G1 ++ G2 ~> n b k].
-        apply rewr_fold_rev_aux; done.
-      rewrite h1.
-      apply: rewr_fold.
-      unfold rs'.
-      rewrite nth_error_lset.
-      rewrite eq_refl.
-      done.
-      rewrite size_remove.
-      done.
-      rewrite -ltn_pred //=.
-      unfold rs'; done.
-    Qed.
-
-    Check rewr_subst.
 
     Lemma rewr_subst_rev (rs : rlist N T) pos1 pos2 ns ns' b1 b2 h f (r : detReaction N T ns h) k :
       pos2 != pos1 ->
@@ -278,7 +242,7 @@ Section Lems.
         rewrite remove_insert //=.
       rewrite {2}heq.
       apply: rewr_addrem.
-      rewrite nth_error_insert.
+      rewrite nth_error_insert_same.
       apply: erefl.
       slia.
       apply/allP => x Hx.
@@ -478,7 +442,6 @@ Ltac get_val_at a n :=
     let i := pos_of_at a m in
     apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm); rewrite /React_eq //=]); simpl.
 
-  (* TODO: unfold_bind0 and so on *)
 
   Check lift_bind.
   Check lift_bind1.
@@ -491,16 +454,24 @@ Ltac get_val_at a n :=
     let i := pos_of_at a n in
     apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind1 _ midn midty)]); rewrite /lset //=.
 
-    Arguments rewr_fold [N T H rs].
-    (* g0 = first half of partition of context *)
-  Ltac unfold_at_with a n g0 :=
+  Ltac unfold_bind2_at a n midn midty :=
     let i := pos_of_at a n in
-    apply_bi_at a ltac:(apply: (rewr_fold i g0); [apply: erefl | done]); unfold lset_seq; simpl.
+    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind2 _ _ midn midty)]); rewrite /lset //=.
 
+
+  Check rewr_fold.
+    Arguments rewr_fold [N T H rs].
+
+    (* g0 = first half of partition of context *)
+  Ltac unfold_at_with a g0 :=
+    apply_bi_at a ltac:(apply: (rewr_fold g0); [done | done ]); unfold lset_seq; simpl.
+
+  (* unfold an rbind at n1, place at n1 *)
   Ltac unfold_at a n :=
-    let d := get_dist_at a n in
+    r_move_at a n 0%N;
+    let d := get_dist_at a 0%N in
     match d with
-    | rbind ?g _ _ _ _ _ => unfold_at_with a n g
+    | rbind ?g _ _ _ _ _ => unfold_at_with a g
                                            end.
     Arguments rewr_pair [N T H rs].
 

@@ -11,6 +11,8 @@ Section Theory.
 
   Context (N T : choiceType) `{type T}.
 
+  SearchAbout List.nth_error.
+
   Lemma rewr_rot : forall n (rs : rlist N T), r_rewr rs (rot_rcons n rs).
     intros.
     apply rewr_bi_r.
@@ -18,8 +20,192 @@ Section Theory.
     apply Perm_rot.
   Qed.
 
-(*
-  Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * T) (r : Reaction G1 h) (n : N * T) (k : denomT h.2 -> Reaction (G1 ++ G2) n) m b,
+  Fixpoint RChans_wf (rs : rlist N T) :=
+    match rs with
+    | nil => true
+    | (r :: rs) => all (fun x => x \in RSeqs _ _ rs) (RArgs _ _ [:: r]) && RChans_wf rs
+                       end.
+
+  Lemma RSeqs_remove (rs : rlist N T) i :
+    RSeqs _ _ (remove rs i) = remove (RSeqs _ _ rs) i.
+    move: rs.
+    induction i.
+    induction rs; done.
+    induction rs.
+    done.
+    simpl.
+    rewrite IHi //=.
+  Qed.
+
+  Lemma RSeqs_insert (rs : rlist N T) i x :
+    RSeqs _ _ (insert rs i x) = insert (RSeqs _ _ rs) i (chan_of x).
+    move: rs; induction i; induction rs.
+    done.
+    done.
+    done.
+    simpl.
+    rewrite IHi //=.
+ Qed.
+
+  Lemma size_RSeqs (rs : rlist N T) :
+    size (RSeqs _ _ rs) = size rs.
+    induction rs; rewrite //=.
+    rewrite IHrs //=.
+  Qed.
+
+  Lemma RSeqs_lset (rs : rlist N T) i r :
+    RSeqs _ _ (lset rs i r) = lset (RSeqs _ _ rs) i (chan_of r).
+    move: rs; induction i; induction rs.
+    rewrite /lset //=.
+    simpl.
+    rewrite /lset //=.
+    rewrite RSeqs_insert //=.
+    done.
+    simpl.
+    rewrite /lset //=.
+    rewrite !ltSnSn.
+    rewrite size_RSeqs.
+    destruct (i < size rs).
+    simpl.
+    rewrite RSeqs_insert //=.
+    rewrite RSeqs_remove //=.
+    done.
+  Qed.
+
+
+  Lemma RChans_wfP (rs : rlist N T) :
+    RChans_wf rs ->
+    RChans rs =i RSeqs _ _ rs.
+    induction rs.
+    done.
+    simpl.
+    move/andP; elim => h1 h2.
+    rewrite /RChans //=.
+    destruct a.
+    destruct r.
+    simpl in *.
+    rewrite /RArgs //= in h1.
+    move => z.
+    rewrite in_cons mem_cat /RArgs //=.
+    rewrite !in_cons.
+    case (eqVneq z x.2.1).
+    move => ->.
+    rewrite eq_refl //=.
+    intro hneq.
+    rewrite (negbTE hneq) //=.
+    rewrite mem_cat.
+    remember (z \in [seq i.1 | i <- x.1.1]) as b; symmetry in Heqb; rewrite Heqb; destruct b.
+    simpl.
+    rewrite orbT //=.
+    move: (allP h1 z).
+    rewrite cats0 Heqb; move/(_ is_true_true) => -> //=.
+    simpl.
+    rewrite -{2}IHrs.
+    rewrite /RChans /RArgs mem_cat //=.
+    done.
+    simpl.
+    move => a.
+    rewrite !in_cons.
+    case (eqVneq a p.1).
+    move => -> //= ; rewrite eq_refl //=.
+    move => hc; rewrite (negbTE hc) //= -IHrs /RChans //=.
+  Qed.
+      
+    
+
+
+  Lemma RChans_eqP (i : nat) (rs rs' : rlist N T) :
+    RChans_wf rs ->
+    RChans_wf rs' ->
+    size rs = i ->
+    size rs' = i ->
+    (forall n c, List.nth_error rs n = Some c -> exists c', List.nth_error rs' n = Some c' /\ chan_of c = chan_of c') ->
+    RChans rs =i RChans rs'.
+    move: rs rs'; induction i.
+    move => rs rs'.
+    move => _ _.
+    move/size0nil => ->.
+    move/size0nil => ->.
+    done.
+    move => rs rs' Hrs Hrs'.
+    destruct rs as [| r rs].
+    done.
+    destruct rs' as [| r' rs'].
+    done.
+    simpl.
+    move/eqP; rewrite /eq_op //=; move/eqP => h1.
+    move/eqP; rewrite /eq_op //=; move/eqP => h2.
+    intros.
+    move => a.
+    rewrite !RChans_wfP //=.
+    have: chan_of r = chan_of r'.
+    move: (H0 0 r).
+    move/(_ erefl).
+    elim => r''.
+    simpl.
+    elim.
+    inj.
+    done.
+    move => ->.
+    rewrite !in_cons.
+    rewrite -!RChans_wfP //=.
+    erewrite IHi.
+    apply: erefl.
+    move/andP: Hrs; elim; done.
+    move/andP: Hrs'; elim; done.
+    done.
+    done.
+    intros.
+    move: (H0 (S n) c).
+    simpl.
+    move/(_ H1).
+    done.
+    move/andP: Hrs'; elim; done.
+    move/andP: Hrs; elim; done.
+Qed.
+
+  Lemma notin_removeP {A : eqType} (xs : seq A) i x :
+    x \notin xs -> x \notin (remove xs i).
+    move: xs; induction i; induction xs.
+    done.
+    simpl.
+    rewrite in_cons negb_or; move/andP; elim; done.
+    done.
+    simpl.
+    rewrite !in_cons !negb_or; move/andP; elim => h1 h2.
+    rewrite IHi //=.
+    rewrite h1 //=.
+  Qed.
+
+  Lemma notin_insert {A : eqType} (xs : seq A) i x y :
+    y \notin xs -> y != x -> y \notin (insert xs i x).
+    move: xs; induction i; induction xs.
+    simpl.
+    rewrite mem_seq1 //=.
+    simpl.
+    rewrite in_cons negb_or; move/andP; elim => h1 h2 h3.
+    rewrite !in_cons.
+    rewrite (negbTE h1) (negbTE h2) (negbTE h3) //=.
+    simpl.
+    rewrite mem_seq1 //=.
+    simpl.
+    rewrite !in_cons !negb_or; move/andP; elim => h1 h2 h3; apply/andP; split.
+    done.
+    apply IHi; done.
+  Qed.
+
+  Lemma notin_lset {A : eqType} (xs : seq A) i x y :
+    y \notin xs -> y != x -> y \notin (lset xs i x).
+    intros.
+    rewrite /lset.
+    destruct (i < size xs).
+    apply notin_insert.
+    apply notin_removeP; done.
+    done.
+    done.
+ Qed.
+
+Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * T) (r : Reaction G1 h) (n : N * T) (k : denomT h.2 -> Reaction (G1 ++ G2) n) m b,
       h.1 \notin RChans rs ->
       h.1 != n.1 ->
       m \in G2 ->
@@ -36,15 +222,20 @@ Section Theory.
   apply: rewr_fold; done.
 
   eapply rewr_bi_trans.
-  apply (rewr_add_ch _ _ m).
-  rewrite mem_cat H2 orbT //=.
+  Check rewr_add_ch.
+  apply: (rewr_add_ch _ _ _ 0 m).
+  apply: erefl.
+  rewrite mem_cat H2 //= orbT //=.
+  
+  rewrite /lset //=.
+  rewrite insert_0.
 
   have -> :
     (existT (fun ns : seq (N * T) * bool * (N * T) => Reaction ns.1.1 ns.2) 
             (m :: G1 ++ G2, b, n) (fun _ : denomT m.2 => rbind G1 G2 h n r k)) =
     (existT (fun ns : seq (N * T) * bool * (N * T) => Reaction ns.1.1 ns.2) 
           ((m :: G1) ++ G2, b, n) (rbind (m :: G1) G2 h n (fun _ => r) (fun m _ => k m))).
-  done.
+  unlock rbind; done.
 
   eapply rewr_bi_trans.
   apply rewr_fold; done.
@@ -54,13 +245,15 @@ Section Theory.
   simpl.
 
   eapply rewr_bi_trans.
-  apply (rewr_r_perm _ _ _ _ (Perm_swap 1 0 _)).
+  Check rewr_r_perm.
+  apply: (rewr_r_perm 0 _ _ (Perm_swap 1 0 _)).
   simpl.
-  rewrite /swap /=.
+  apply: erefl.
+  rewrite /lset //=.
+
 
   eapply rewr_bi_trans.
-  apply rewr_ext.
-  instantiate (1 := (fun _ => k)).
+  r_ext_at leftc 0 (fun (_ : denomT m.2) => k).
   clear.
 
       move: G2 h n k.
@@ -77,12 +270,20 @@ Section Theory.
       eapply IHG1.
       done.
 
-  eapply rewr_bi_trans.
-  apply rewr_bi_sym.
-  apply (rewr_add_ch _ _ m).
+  rewrite /lset /=.
+
+  rewrite /swap /=.
+  Check rewr_add_ch_rev.
+  apply: (rewr_add_ch_rev _ _ _ 0 m).
+  done.
+  apply: erefl.
   rewrite in_cons mem_cat H2 !orbT //=.
-  apply rewr_perm; apply perm_swap.
+  rewrite /lset //=.
+  r_move_at leftc 0 1.
+  reflexivity.
 Qed.
+
+  (*
 
   Lemma fold_bind00 : forall (rs : rlist N T) (h : N * T) (m : meas (denomT h.2)) (n : N * T) (k : denomT h.2 -> meas (denomT n.2)) (b : bool) ,
       h.1 \notin RChans rs ->

@@ -214,6 +214,7 @@ Fixpoint ROutputs (r : rlist) : seq N:=
         | inl (existT t _) => t.2.1
                                 end.
 
+
   Definition RSeqs (r : rlist) : seq N:=
     map chan_of r.
 
@@ -257,6 +258,8 @@ Fixpoint ROutputs (r : rlist) : seq N:=
 
 Notation "G ~> c b D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, b, c) D)) (at level 80, c at level 9, b at level 9).
 
+Open Scope nat_scope.
+
 Inductive r_rewr_bi : rlist -> rlist -> Prop :=
 | rewr_bi_trans : forall r1 r2 r3, r_rewr_bi r1 r2 -> r_rewr_bi r2 r3 -> r_rewr_bi r1 r3
 | rewr_bi_refl : forall r1, r_rewr_bi r1 r1
@@ -273,10 +276,12 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
     List.nth_error rs n = Some (G ~> c b k) ->
     React_eq _ _ k k' ->
     r_rewr_bi rs (lset rs n (G ~> c b k'))
-  | rewr_fold : forall rs pos  G1 G2 h (r : Reaction G1 h) n (k : (denomT h.2 -> Reaction (G1 ++ G2) n)) (b : bool) ,
-      List.nth_error rs pos = Some ((G1 ++ G2) ~> n b (rbind r k)) ->
+| rewr_fold : forall rs G1 G2 h (r : Reaction G1 h) n (k : (denomT h.2 -> Reaction (G1 ++ G2) n)) (b : bool) ,
       h.1 \notin RChans rs ->
-      r_rewr_bi rs (lset_seq rs pos [:: (G1 ~> h false r); ((h :: (G1 ++ G2)) ~> n b k)])
+      h.1 != n.1 ->
+      r_rewr_bi (((G1 ++ G2) ~> n b (rbind r k)) :: rs)
+                ((G1 ~> h false r) :: ((h :: (G1 ++ G2)) ~> n b k) :: rs)
+
   | rewr_pair : forall rs (n1 n2 : nat) (n' : N) (r1 r2 : reaction),
       List.nth_error rs n1 = Some (inl r1) ->
       List.nth_error rs n2 = Some (inl r2) ->
@@ -299,6 +304,12 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
       all (fun x => x \in RChans rs') (map fst g1) ->
       h.1 \notin RChans rs' ->
       r_rewr_bi rs rs'
+  | rewr_weak : forall (rs : rlist) pos1 pos2 n (g1 g2 : seq (N * T)) (f1 f2 : N * T) (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2,
+      List.nth_error rs pos1 = Some (g1 ~> f1 b1 d) ->
+      List.nth_error rs pos2 = Some (g2 ~> f2 b2 d') ->
+      n \in g1 ->
+      f1 \in g2 ->
+      r_rewr_bi rs (lset rs pos2 (n :: g2 ~> f2 b2 (fun _ => d')))
   | rewr_rename : forall rs n n',
       n \notin RInputs rs ->
       n \notin ROutputs rs ->
@@ -311,12 +322,6 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
   | rewr_bi_l : forall r1 r2, r_rewr_bi r1 r2 -> r_rewr r2 r1
   | rewr_refl : forall r, r_rewr r r
   | rewr_trans : forall r1 r2 r3, r_rewr r1 r2 -> r_rewr r2 r3 -> r_rewr r1 r3
-  | rewr_weak : forall (rs : rlist) pos1 pos2 n (g1 g2 : seq (N * T)) (f1 f2 : N * T) (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2,
-      List.nth_error rs pos1 = Some (g1 ~> f1 b1 d) ->
-      List.nth_error rs pos2 = Some (g2 ~> f2 b2 d') ->
-      n \in g1 ->
-      f1 \in g2 ->
-      r_rewr rs (lset rs pos2 (n :: g2 ~> f2 b2 (fun _ => d')))
   | rewr_str : forall (rs : rlist) pos (g : seq (N * T)) (f : N * T) (d : Reaction g f) b (n : N * T) ,
       List.nth_error rs pos = Some (n :: g ~> f b (fun _ => d)) ->
       n.1 \in RChans (remove rs pos) ->

@@ -134,7 +134,7 @@ Lemma eg_step1 : ElGamal_real ~~> eg1.
   rewrite /ElGamal_real /eg1.
   simpl.
   unfold_bind0_at rightc "samp" "samp1" tyZq.
-  unfold_at_with rightc "samp" (nil : seq (string * ty)).
+  unfold_at rightc "samp".
   unfold_bind1_at rightc "samp" "samp2" tyZq.
   unfold_at rightc "samp".
   rewrite lift_det2.
@@ -192,69 +192,103 @@ Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
   reflexivity.
 Qed.
 
-(* TODO here *)
-
 Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
-  r_move_at leftc 6 0.
-  unfold_bind0_at leftc "samp" "x" tyZq.
+  rewrite /rlist_comp_hide //= /eg2.
+
+  unfold_bind0_at leftc "samp" "samp1" tyZq.
   unfold_at leftc "samp".
-  unfold_bind1_at leftc "samp" "y" tyZq.
+  unfold_bind1_at leftc "samp" "samp2" tyZq.
   unfold_at leftc "samp".
-  unfold_bind2_at leftc "samp" "z" tyZq.
-  r_weak "X" "samp".
-  r_subst "samp" "X".
-  r_str "X" "samp".
-  r_str "X" "z".
-  r_str "X" "y".
-  r_subst "X" "pk".
-  r_str "pk" "X".
-  r_clean.
-  r_str "y" "x".
-  r_str "z" "x".
-  r_str "z" "y".
-  r_subst "Y" "c".
-  r_subst "Z" "c".
-  r_str "c" "Z".
-  r_str "c" "Y".
-  r_subst "samp" "c".
-  r_str "c" "samp".
-  r_clean.
-  r_clean.
-  r_clean.
-  rewrite /eg2.
-  r_str "c" "x".
-  arg_focus "y".
-  r_align.
+  unfold_bind2_at leftc "samp" "samp3" tyZq.
+  unfold_at leftc "samp".
+
+  hid_str_at leftc "samp2" "samp3".
+  hid_str_at leftc "samp1" "samp3".
+  hid_str_at leftc "samp1" "samp2".
+
+  hid_weak_at leftc "samp1" "X".
+  hid_weak_at leftc "samp2" "X".
+  hid_weak_at leftc "samp3" "X".
+  arg_move_at leftc "X" "samp" 0.
+  subst_at leftc "samp" "X".
+  hid_str_at leftc "samp" "X".
+  hid_str_at leftc "samp3" "X".
+  hid_str_at leftc "samp2" "X".
+
+  hid_weak_at leftc "samp1" "Y".
+  hid_weak_at leftc "samp2" "Y".
+  hid_weak_at leftc "samp3" "Y".
+  arg_move_at leftc "Y" "samp" 0.
+  subst_at leftc "samp" "Y".
+  hid_str_at leftc "samp" "Y".
+
+  hid_weak_at leftc "samp1" "Z".
+  hid_weak_at leftc "samp2" "Z".
+  hid_weak_at leftc "samp3" "Z".
+  arg_move_at leftc "Z" "samp" 0.
+  subst_at leftc "samp" "Z".
+  hid_str_at leftc "samp" "Z".
+  hid_str_at leftc "samp2" "Z".
+
+  hid_weak_at leftc "samp1" "pk".
+  arg_move_at leftc "pk" "X" 0.
+  subst_at leftc "X" "pk".
+  hid_str_at leftc "X" "pk".
+
+  hid_str_at leftc "samp3" "Y".
+  hid_str_at leftc "samp1" "Y".
+  remove_at leftc "samp".
+  remove_at leftc "X".
+
+  hid_weak_at leftc "samp2" "c".
+  arg_move_at leftc "c" "Y" 0.
+  subst_at leftc "Y" "c".
+  hid_str_at leftc "Y" "c".
+  remove_at leftc "Y".
+
+  hid_weak_at leftc "samp1" "c".
+  hid_weak_at leftc "samp3" "c".
+  arg_move_at leftc "c" "Z" 0.
+  subst_at leftc "Z" "c".
+  hid_str_at leftc "Z" "c".
+  remove_at leftc "Z".
+
+  rename_at leftc "samp1" "x".
+  rename_at leftc "samp2" "y".
+  rename_at leftc "samp3" "z".
+  hid_str_at leftc "x" "c".
+
+  arg_move_at leftc "c" "y" 0.
+  arg_move_at leftc "c" "z" 1.
+
+  r_move_at leftc "x" 0.
+  r_move_at leftc "pk" 1.
+  r_move_at leftc "y" 2.
+  r_move_at leftc "z" 3.
   reflexivity.
-Time Qed.
+Qed.
 
 Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
   rewrite /eg2.
   simpl.
-  r_move "z" 0.
-  r_move "m" 1.
+  rewrite /ElGamal_ideal.
   r_move "c" 0.
-  arg_focus "z".
-  r_move "c" 1.
+  r_move "pk" 1.
+  r_move "z" 2.
+  arg_move_at leftc "c" "z" 0.
+  etransitivity.
+  ensure_bi_r.
+  Check rewr_add_ch_fold.
+  r_move_at leftc "z" 0.
+  apply: (rewr_add_ch_fold).
+  done.
+  done.
+  instantiate (1 := ("m", tyG)).
+  done.
+  simpl.
 
-  have: ([:: ("z", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)], true, ("c", tyPair tyG tyG)) =
-        (("z", tyZq) :: ([::] ++ [:: ("y", tyZq); ("pk", tyG); ("m", tyG)]), true, ("c", tyPair tyG tyG)). 
-   by done.
-   move => h.
- rewrite (cast_existT h).
-
- have -> : h = erefl by apply eq_irrelevance.
- clear h.
- etransitivity.
- eapply rewr_bi_r.
- rewrite /dep_cast /eq_rect.
- apply: rewr_add_ch_fold.
- done.
- done.
- instantiate (1 := ("m", tyG)).
- done.
-    
-  r_ext "z" (fun m => (x <- munif [finType of 'Z_q]; ret (Zp_add x (Zp_opp (log m))))).
+  rewrite /lset /=.
+  r_ext_at leftc "z" (fun m => (x <- munif [finType of 'Z_q]; ret (Zp_add x (Zp_opp (log m))))).
     intro m.
     rewrite -munif_bij.
     done.
@@ -266,26 +300,42 @@ Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
     move => x.
     rewrite -Zp_addA.
     rewrite (Zp_addC y) Zp_addNz Zp_addC Zp_add0z //=.
-  unfold_bind1 "z" "t" tyZq.
-  r_subst "z" "c".
-  r_str "c" "z".
-  r_ext "c" (fun (x : 'Z_q) (x0 : G) (x1 : 'Z_q) (g : G) =>
+  unfold_bind1_at leftc "z" "t" tyZq.
+  unfold_at leftc  "z".
+  hid_weak_at leftc  "t" "c".
+  arg_move_at leftc "c" "m" 1.
+  arg_move_at leftc "c" "z" 0.
+  subst_at leftc "z" "c".
+  hid_str_at leftc "z" "c".
+  remove_at leftc "z".
+  r_ext_at leftc "c" (fun (x : 'Z_q) (x0 : G) (x1 : 'Z_q) (g : G) =>
            ret (exp x1, exp x)).
   intros.
   rewrite -{2}(log_exp x0).
   rewrite -Hop.
   rewrite -Zp_addA.
   rewrite Zp_addNz Zp_addC Zp_add0z //=.
- r_clean.
- r_rename "t" "z".
- arg_focus "y".
- arg_move "pk" "m".
- r_move "z" 0.
- r_move "m" 1.
- rewrite rewr_str_inp.
- rewrite /ElGamal_ideal.
- simpl.
- r_align.
+  rewrite /lset /=.
+ 
+ eapply rewr_r_l.
+
+  r_move "c" 0.
+  r_move "pk" 1.
+  r_move "z" 2.
+  arg_move_at leftc "c" "z" 0.
+  r_move_at leftc "z" 0.
+  apply: (rewr_add_ch_fold).
+  done.
+  done.
+  instantiate (1 := ("m", tyG)).
+  done.
+ rename_at leftc "t" "z".
+ r_move_at leftc "z" 0.
+ r_move_at leftc "c" 1.
+ r_move_at leftc "pk" 2.
+ r_move_at leftc "x" 3.
+ arg_move_at leftc "c" "y" 1.
+ arg_move_at leftc "c" "pk" 2.
  reflexivity.
 Qed.
 
@@ -299,17 +349,16 @@ Lemma ElGamal_secure: r_rewr ddh0 ddh1 -> r_rewr ElGamal_real ElGamal_ideal.
   instantiate (1 := eg1_factor ||| ddh1).
   apply rewr_congr.
   rewrite /eg1_factor /ddh0.
-  rewrite /Reaction.r_compat.
+  rewrite /r_compat.
   simpl.
   intro.
   move/andP; elim.
   intro.
   rewrite mem_seq1; move/eqP => ->.
   done.
-  rewrite /Reaction.r_compat /eg1_factor /ddh1.
+  rewrite /r_compat /eg1_factor /ddh1.
   simpl.
   intro; move/andP; elim; intro; rewrite mem_seq1; move/eqP => ->; done.
-  (* TODO: congr rule *)
   etransitivity.
   apply eg_step2.
   apply eg_step3.

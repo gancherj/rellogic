@@ -471,7 +471,7 @@ Lemma size_insert {A} (xs : seq A) n x :
     rewrite IHn //=.
 Qed.
 
-Lemma nth_error_insert {A} (xs : seq A) n x :
+Lemma nth_error_insert_same {A} (xs : seq A) n x :
     n < (S (size xs)) ->
     List.nth_error (insert xs n x) n = Some x.
     move: n; induction xs.
@@ -486,6 +486,44 @@ Lemma nth_error_insert {A} (xs : seq A) n x :
     done.
     simpl.
     intro; rewrite IHxs //=.
+Qed.
+
+Lemma nth_error_insert_lt {A} (xs : seq A) n m x :
+  n < size xs ->
+  m < n ->
+  List.nth_error (insert xs n x) m = List.nth_error xs m.
+  move: n m.
+  induction xs.
+  done.
+  induction n.
+  done.
+  simpl.
+  rewrite ltSnSn.
+  induction m.
+  done.
+  intros.
+  simpl.
+  rewrite IHxs //=.
+Qed.
+
+Lemma nth_error_insert_gt {A} (xs : seq A) n m x :
+  n < size xs ->
+  m > n ->
+  List.nth_error (insert xs n x) (S m) = List.nth_error xs (m).
+  move: n m.
+  induction xs.
+  done.
+  induction n.
+  simpl.
+  done.
+  simpl.
+  intros.
+  destruct m.
+  done.
+  rewrite IHxs.
+  done.
+  done.
+  done.
 Qed.
 
 Lemma insert_0 {A} (xs : seq A) (x : A) :
@@ -712,6 +750,18 @@ Lemma nth_error_lset {A} (xs : seq A) (n m : nat) x :
   done.
 Qed.
 
+Lemma size_lset {A} (xs : seq A) n x :
+  n < size xs ->
+  size (lset xs n x) = size xs.
+  intro.
+  rewrite /lset H.
+  rewrite size_insert size_remove.
+  destruct (size xs); done.
+  done.
+Qed.
+
+
+
 Lemma nth_error_remove {A} (xs : seq A) n m :
   n < size xs ->
   List.nth_error (remove xs n) m = if m < n then List.nth_error xs m else List.nth_error xs m.+1.
@@ -731,6 +781,29 @@ Lemma nth_error_remove {A} (xs : seq A) n m :
   destruct (m < n).
   done.
   destruct xs; done.
+  done.
+Qed.
+
+Check lset_seq.
+
+Check remove.
+Check insert.
+
+Lemma nth_error_eqP {A} (xs xs' : seq A) :
+  (forall n, List.nth_error xs n = List.nth_error xs' n) -> xs = xs'.
+  move: xs'; induction xs.
+  induction xs'.
+  done.
+  move/(_ 0).
+  done.
+  intros.
+  destruct xs'.
+  move: (H 0); done.
+  move: (H 0) => h; injection h => ->.
+  erewrite IHxs.
+  apply: erefl.
+  intros.
+  move: (H (S n)).
   done.
 Qed.
 
