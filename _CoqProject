@@ -11,3 +11,4 @@ Logic.v
 Tacs.v
 SeqOps.v
 RLems.v
+DerivedTacs.v

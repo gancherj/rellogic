@@ -214,7 +214,6 @@ Fixpoint ROutputs (r : rlist) : seq N:=
         | inl (existT t _) => t.2.1
                                 end.
 
-
   Definition RSeqs (r : rlist) : seq N:=
     map chan_of r.
 

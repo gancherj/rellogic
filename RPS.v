@@ -4,7 +4,7 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-Require Import Posrat Premeas Meas Aux Logic finfun_fixed String SSRString SeqOps RLems Tacs.
+Require Import Posrat Premeas Meas Aux Logic finfun_fixed String SSRString SeqOps RLems Tacs DerivedTacs.
 
 
 Section RPS.
@@ -109,9 +109,12 @@ Section RPS.
   Definition rpsIdeal : rl :=
     [:: inr ("inA", tyPlay);
       inr ("inB", tyPlay);
-      [:: ("inA", tyPlay); ("inB", tyPlay)] ~> ("comp", tyAns) dhid rps_comp;
-      [:: ("comp", tyAns)] ~> ("outA", tyAns) dvis id;
-      [:: ("comp", tyAns)] ~> ("outB", tyAns) dvis id
+      [:: ("inA", tyPlay)] ~> ("sendA", tyPlay) hid mret;
+      [:: ("inB", tyPlay)] ~> ("sendB", tyPlay) hid mret;
+      [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dhid rps_comp;
+      [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvB", tyAns) dhid rps_comp;
+      [:: ("recvA", tyAns)] ~> ("outA", tyAns) dvis id;
+      [:: ("recvB", tyAns)] ~> ("outB", tyAns) dvis id
     ].
 
   Definition rpsRealP (p : bool) :rl :=
@@ -158,25 +161,18 @@ Section RPS.
   Lemma ideal_rewr : r_rewr rps_simp rpsIdeal.
     rewrite /rpsIdeal /rps_simp.
     simpl.
-    trans_at rightc "comp" "outA" "inA" tyPlay.
-    trans_at rightc "comp" "outA" "inB" tyPlay.
-    arg_move_at rightc "outA" "comp" 0.
-    arg_move_at rightc "outA" "inA" 1.
-    subst_at rightc "comp" "outA".
-    hid_str_at rightc "comp" "outA".
 
-    trans_at rightc "comp" "outB" "inA" tyPlay.
-    trans_at rightc "comp" "outB" "inB" tyPlay.
-    arg_move_at rightc "outB" "comp" 0.
-    arg_move_at rightc "outB" "inA" 1.
-    subst_at rightc "comp" "outB".
-    hid_str_at rightc "comp" "outB".
-
-    remove_at rightc "comp".
-    r_move_at rightc "outB" 0.
-    r_move_at rightc "outA" 1.
-    arg_move_at leftc "outA" "inA" 0.
-    r_move_at leftc "inB" "inA".
+    autosubst_at rightc "sendA" "recvA".
+    autosubst_at rightc "sendB" "recvB".
+    autosubst_at rightc "recvA" "outA".
+    autosubst_at rightc "recvB" "outB".
+    autosubst_at rightc "sendA" "outB".
+    autosubst_at rightc "sendB" "outA".
+    remove_at rightc "recvA".
+    remove_at rightc "recvB".
+    remove_at rightc "sendA".
+    remove_at rightc "sendB".
+    align.
     reflexivity.
  Qed.
 
@@ -187,66 +183,29 @@ Section RPS.
     vm_compute RChans; rewrite //=.
 
     simpl.
-    trans_at leftc "committedA" "openB" "comA" tyPlay.
-    arg_move_at leftc "openB" "committedA" 0.
-    subst_at leftc "committedA" "openB".
-    hid_str_at leftc "committedA" "openB".
-
-    trans_at leftc "committedB" "openA" "comB" tyPlay.
-    arg_move_at leftc "openA" "committedB" 0.
-    subst_at leftc "committedB" "openA".
-    hid_str_at leftc "committedB" "openA".
-
+    autosubst_at leftc "committedA" "openB".
+    autosubst_at leftc "committedB" "openA".
     remove_at leftc "committedA".
     remove_at leftc "committedB".
-
-    trans_at leftc "openA" "valA" "comB" tyPlay.
-    arg_move_at leftc "valA" "openA" 0.
-    subst_at leftc "openA" "valA".
-    hid_str_at leftc "openA" "valA".
-    remove_at leftc "openA".
-
-    trans_at leftc "openB" "valB" "comA" tyPlay.
-    arg_move_at leftc "valB" "openB" 0.
-    subst_at leftc "openB" "valB".
-    hid_str_at leftc "openB" "valB".
-    remove_at leftc "openB".
-
-    trans_at leftc "valA" "outB" "comA" tyPlay.
-    trans_at leftc "valA" "outB" "comB" tyPlay.
-    arg_move_at leftc "outB" "valA" 0.
-    subst_at leftc "valA" "outB".
-    hid_str_at leftc "valA" "outB".
-    remove_at leftc "valA".
-
-    trans_at leftc "valB" "outA" "comB" tyPlay.
-    trans_at leftc "valB" "outA" "comA" tyPlay.
-    arg_move_at leftc "outA" "valB" 0.
-    subst_at leftc "valB" "outA".
-    hid_str_at leftc "valB" "outA".
-    remove_at leftc "valB".
-
-    hid_str_at leftc "comA" "outA".
-    hid_str_at leftc "comB" "outB".
-
-    trans_at leftc "comA" "outB" "inA" tyPlay.
-    arg_move_at leftc "outB" "comA" 0.
-    arg_move_at leftc "outB" "inA" 1.
-    subst_at leftc "comA" "outB".
-    hid_str_at leftc "comA" "outB".
+    autosubst_at leftc "comA" "valA".
+    autosubst_at leftc "comA" "openB".
+    autosubst_at leftc "comA" "openA".
     remove_at leftc "comA".
-
-    trans_at leftc "comB" "outA" "inB" tyPlay.
-    arg_move_at leftc "outA" "comB" 0.
-    arg_move_at leftc "outA" "inB" 1.
-    subst_at leftc "comB" "outA".
-    hid_str_at leftc "comB" "outA".
+    autosubst_at leftc "comB" "valB".
+    autosubst_at leftc "comB" "openA".
+    autosubst_at leftc "comB" "openB".
     remove_at leftc "comB".
-
-    rewrite /rps_simp.
-    r_move_at leftc "outB" 0.
-    r_move_at leftc "outA" 1.
-    r_move_at leftc "inB" 2.
+    autosubst_at leftc "openA" "valA".
+    remove_at leftc "openA".
+    autosubst_at leftc "openB" "valB".
+    remove_at leftc "openB".
+    autosubst_at leftc "valB" "outA".
+    remove_at leftc "valB".
+    autosubst_at leftc "valA" "outB".
+    remove_at leftc "valA".
+    rewrite /rps_simp //=.
+    align.
+    arg_move_at leftc "outB" "inB" 1.
     reflexivity.
 Qed.
 

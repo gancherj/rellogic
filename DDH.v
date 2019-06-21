@@ -5,7 +5,7 @@ From mathcomp Require Import fingroup finset.
 From mathcomp Require Import cyclic zmodp.
 
 Require Import Posrat Premeas Meas Aux finfun_fixed String SSRString SeqOps RLems.
-Require Import Logic Tacs.
+Require Import Logic Tacs DerivedTacs.
 
 Require Import FCG.
 
@@ -138,54 +138,24 @@ Lemma eg_step1 : ElGamal_real ~~> eg1.
   unfold_bind1_at rightc "samp" "samp2" tyZq.
   unfold_at rightc "samp".
   rewrite lift_det2.
-  hid_weak_at rightc "samp1" "X".
-  hid_weak_at rightc "samp2" "X".
-  arg_move_at rightc "X" 2 0.
-  subst_at rightc "samp" "X".
-  hid_str_at rightc "samp" "X".
-  hid_str_at rightc "samp2" "X".
-  hid_weak_at rightc "samp1" "pk".
-  arg_move_at rightc "pk" "X" 0.
-  subst_at rightc "X" "pk".
-  hid_str_at rightc "X" "pk".
+  autosubst_at rightc "X" "pk".
   remove_at rightc "X".
-  rename_at rightc "samp1" "x".
-  hid_str_at rightc "x" "samp2".
-  hid_weak_at rightc "samp2" "Y".
-  hid_weak_at rightc "x" "Y".
-  arg_move_at rightc "Y" "samp" 0.
-  arg_move_at rightc "Y" "samp2" 1.
-  subst_at rightc "samp" "Y".
-  hid_str_at rightc "samp" "Y".
-  hid_str_at rightc "x" "Y".
-  hid_weak_at rightc "samp2" "c".
-  arg_move_at rightc "c" "Y" 0.
-  subst_at rightc "Y" "c".
-  hid_str_at rightc "Y" "c".
+  autosubst_at rightc "Y" "c".
+  autosubst_at rightc "Z" "c".
+  autosubst_at rightc "samp" "c".
   remove_at rightc "Y".
-  rename_at rightc "samp2" "y".
-  arg_move_at rightc "c" "Z" 0.
-  hid_weak_at rightc "x" "c".
-  hid_weak_at rightc "samp" "c".
-  arg_move_at rightc "c" "Z" 0.
-  subst_at rightc "Z" "c".
-  hid_str_at rightc "Z" "c".
   remove_at rightc "Z".
-  arg_move_at rightc "c" "y" 1.
-  arg_move_at rightc "c" "x" 2.
-  subst_at rightc "samp" "c".
-  hid_str_at rightc "samp" "c".
+  autosubst_at rightc "samp" "pk".
+  hid_str_at rightc "samp2" "pk".
+  hid_str_at rightc "samp1" "samp2".
   remove_at rightc "samp".
-  r_move_at rightc "x" 0.
-  r_move_at rightc "pk" 1.
-  r_move_at rightc "m" 2.
-  r_move_at rightc "y" 3.
-  r_move_at rightc "c" 4.
+  rename_at rightc "samp1" "x".
+  rename_at rightc "samp2" "y".
+  align.
   arg_move_at rightc "c" "x" 0.
   rewrite bind_ret.
   reflexivity.
 Qed.
-
 
 Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
   r_move_at leftc 0 6.
@@ -195,76 +165,30 @@ Qed.
 Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   rewrite /rlist_comp_hide //= /eg2.
 
-  unfold_bind0_at leftc "samp" "samp1" tyZq.
+  unfold_bind0_at leftc "samp" "x" tyZq.
   unfold_at leftc "samp".
-  unfold_bind1_at leftc "samp" "samp2" tyZq.
+  unfold_bind1_at leftc "samp" "y" tyZq.
   unfold_at leftc "samp".
-  unfold_bind2_at leftc "samp" "samp3" tyZq.
+  unfold_bind2_at leftc "samp" "z" tyZq.
   unfold_at leftc "samp".
 
-  hid_str_at leftc "samp2" "samp3".
-  hid_str_at leftc "samp1" "samp3".
-  hid_str_at leftc "samp1" "samp2".
-
-  hid_weak_at leftc "samp1" "X".
-  hid_weak_at leftc "samp2" "X".
-  hid_weak_at leftc "samp3" "X".
-  arg_move_at leftc "X" "samp" 0.
-  subst_at leftc "samp" "X".
-  hid_str_at leftc "samp" "X".
-  hid_str_at leftc "samp3" "X".
-  hid_str_at leftc "samp2" "X".
-
-  hid_weak_at leftc "samp1" "Y".
-  hid_weak_at leftc "samp2" "Y".
-  hid_weak_at leftc "samp3" "Y".
-  arg_move_at leftc "Y" "samp" 0.
-  subst_at leftc "samp" "Y".
-  hid_str_at leftc "samp" "Y".
-
-  hid_weak_at leftc "samp1" "Z".
-  hid_weak_at leftc "samp2" "Z".
-  hid_weak_at leftc "samp3" "Z".
-  arg_move_at leftc "Z" "samp" 0.
-  subst_at leftc "samp" "Z".
-  hid_str_at leftc "samp" "Z".
-  hid_str_at leftc "samp2" "Z".
-
-  hid_weak_at leftc "samp1" "pk".
-  arg_move_at leftc "pk" "X" 0.
-  subst_at leftc "X" "pk".
-  hid_str_at leftc "X" "pk".
-
-  hid_str_at leftc "samp3" "Y".
-  hid_str_at leftc "samp1" "Y".
-  remove_at leftc "samp".
+  autosubst_at leftc "X" "pk".
   remove_at leftc "X".
-
-  hid_weak_at leftc "samp2" "c".
-  arg_move_at leftc "c" "Y" 0.
-  subst_at leftc "Y" "c".
-  hid_str_at leftc "Y" "c".
+  autosubst_at leftc "samp" "pk".
+  hid_str_at leftc "z" "pk".
+  hid_str_at leftc "y" "pk".
+  hid_str_at leftc "y" "z".
+  hid_str_at leftc "x" "z".
+  autosubst_at leftc "Y" "c".
   remove_at leftc "Y".
-
-  hid_weak_at leftc "samp1" "c".
-  hid_weak_at leftc "samp3" "c".
-  arg_move_at leftc "c" "Z" 0.
-  subst_at leftc "Z" "c".
-  hid_str_at leftc "Z" "c".
+  autosubst_at leftc "Z" "c".
+  autosubst_at leftc "samp" "c".
   remove_at leftc "Z".
-
-  rename_at leftc "samp1" "x".
-  rename_at leftc "samp2" "y".
-  rename_at leftc "samp3" "z".
+  remove_at leftc "samp".
+  hid_str_at leftc "x" "y".
   hid_str_at leftc "x" "c".
-
+  align.
   arg_move_at leftc "c" "y" 0.
-  arg_move_at leftc "c" "z" 1.
-
-  r_move_at leftc "x" 0.
-  r_move_at leftc "pk" 1.
-  r_move_at leftc "y" 2.
-  r_move_at leftc "z" 3.
   reflexivity.
 Qed.
 
