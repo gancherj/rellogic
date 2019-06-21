@@ -519,15 +519,15 @@ Ltac get_val_at a n :=
     (* TODO: all the corresponding inverse tactics *)
 
 
-    (* asymmetric tactics *)
 
-    Arguments rewr_weak [N T H rs].
+    Arguments rewr_ch_trans [N T H rs].
 
-    Ltac weak_at a n0 n1 n ty :=
+    Ltac trans_at a n0 n1 n ty :=
       let i := pos_of_at a n0 in
       let j := pos_of_at a n1 in
-      etransitivity; [apply: (rewr_weak i j (n, ty)); [apply: erefl | apply: erefl | done | done] |]; simpl.
+      apply_bi_at a ltac:(apply: (rewr_ch_trans i j (n, ty)); [apply: erefl | apply: erefl | done | done]); rewrite /lset; simpl.
                        
+    (* asymmetric tactics *)
 
     Arguments rewr_str [N T H rs].
 

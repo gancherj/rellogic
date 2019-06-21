@@ -304,7 +304,7 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
       all (fun x => x \in RChans rs') (map fst g1) ->
       h.1 \notin RChans rs' ->
       r_rewr_bi rs rs'
-  | rewr_weak : forall (rs : rlist) pos1 pos2 n (g1 g2 : seq (N * T)) (f1 f2 : N * T) (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2,
+  | rewr_ch_trans : forall (rs : rlist) pos1 pos2 n (g1 g2 : seq (N * T)) (f1 f2 : N * T) (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2,
       List.nth_error rs pos1 = Some (g1 ~> f1 b1 d) ->
       List.nth_error rs pos2 = Some (g2 ~> f2 b2 d') ->
       n \in g1 ->

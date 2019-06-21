@@ -4,7 +4,7 @@ From mathcomp Require Import bigop ssralg div ssrnum ssrint.
 From mathcomp Require Import fingroup finset. 
 From mathcomp Require Import cyclic zmodp.
 
-Require Import Posrat Premeas Meas Aux Reaction finfun_fixed String SSRString SeqOps RLems.
+Require Import Posrat Premeas Meas Aux Logic finfun_fixed String SSRString SeqOps RLems Tacs.
 
 
 Section RPS.
@@ -107,8 +107,8 @@ Section RPS.
                      end.
 
   Definition rpsIdeal : rl :=
-    [:: inr "inA";
-      inr "inB";
+    [:: inr ("inA", tyPlay);
+      inr ("inB", tyPlay);
       [:: ("inA", tyPlay); ("inB", tyPlay)] ~> ("comp", tyAns) dhid rps_comp;
       [:: ("comp", tyAns)] ~> ("outA", tyAns) dvis id;
       [:: ("comp", tyAns)] ~> ("outB", tyAns) dvis id
@@ -117,35 +117,29 @@ Section RPS.
   Definition rpsRealP (p : bool) :rl :=
     let me := if p then "A" else "B" in
     let them := if p then "B" else "A" in
-    [:: inr ("in" ++ me);
-       inr ("committed" ++ them);
-       inr ("val" ++ them);
+    [:: inr ("in" ++ me, tyPlay);
+       inr ("committed" ++ them, tyUnit);
+       inr ("val" ++ them, tyPlay);
        [:: ("in" ++ me, tyPlay)] ~> ("com" ++ me, tyPlay) dvis id;
        [:: ("com" ++ me, tyPlay); ("committed" ++ them, tyUnit)] ~> ("open" ++ me, tyUnit) dvis (fun _ _ => tt);
        [:: ("in"++me, tyPlay); ("val"++them, tyPlay)] ~> ("out"++me, tyAns) dvis (if p then rps_comp else (fun y x => rps_comp x y))
     ].
 
-  Lemma wf_realP b : r_wf (rpsRealP b).
-  rewrite /rpsRealP /r_wf; destruct b; done.
-  Qed.
 
   Definition rps_simp : rl :=
     [::
       [:: ("inA", tyPlay); ("inB", tyPlay)] ~> ("outB", tyAns) vis (fun y x  => ret rps_comp y x);
       [:: ("inB", tyPlay); ("inA", tyPlay)] ~> ("outA", tyAns)
-      vis (fun y x  => ret rps_comp x y); inr "inB"; inr "inA"].
+      vis (fun y x  => ret rps_comp x y); inr ("inB", tyPlay); inr ("inA", tyPlay)].
 
   Definition rpsRealF (p : bool) : rl :=
     let me := if p then "A" else "B" in
-    [:: inr ("com"++me);
+    [:: inr ("com"++me, tyPlay);
         [:: ("com"++me, tyPlay)] ~> ("committed"++me, tyUnit) dvis (fun _ => tt);
-        inr ("open"++me);
+        inr ("open"++me, tyUnit);
         [:: ("com"++me, tyPlay); ("open"++me, tyUnit)] ~> ("val"++me, tyPlay) dvis (fun x _ => x)
                                                        ].
 
-  Lemma wf_realF b : r_wf (rpsRealF b).
-  rewrite /rpsRealF /r_wf; destruct b; done.
-  Qed.
 
   Definition rpsReal := (rpsRealF true ||| rpsRealF false ||| rpsRealP true ||| rpsRealP false).
 
@@ -164,25 +158,27 @@ Section RPS.
   Lemma ideal_rewr : r_rewr rps_simp rpsIdeal.
     rewrite /rpsIdeal /rps_simp.
     simpl.
-    r_move "outA" 0.
-    arg_focus "inA".
-    r_prod "outA" "outB" "tmp".
-    rewrite /eq_rect_r /=.
-    r_ext "tmp" (fun x y => a <- ret (rps_comp x y); ret (a, a)).
-    intros; destruct x; destruct x0; simpl; msimp; done.
-    unfold_bind2 "tmp" "comp" tyAns.
-    r_subst "tmp" "outB".
-    r_str "outB" "tmp".
-    r_subst "tmp" "outA".
-    r_str "outA" "tmp".
-    r_str_inp "outA" "inA".
-    r_str_inp "outA" "inB".
-    r_str_inp "outB" "inA".
-    r_str_inp "outB" "inB".
-    r_clean.
-    r_align.
+    trans_at rightc "comp" "outA" "inA" tyPlay.
+    trans_at rightc "comp" "outA" "inB" tyPlay.
+    arg_move_at rightc "outA" "comp" 0.
+    arg_move_at rightc "outA" "inA" 1.
+    subst_at rightc "comp" "outA".
+    hid_str_at rightc "comp" "outA".
+
+    trans_at rightc "comp" "outB" "inA" tyPlay.
+    trans_at rightc "comp" "outB" "inB" tyPlay.
+    arg_move_at rightc "outB" "comp" 0.
+    arg_move_at rightc "outB" "inA" 1.
+    subst_at rightc "comp" "outB".
+    hid_str_at rightc "comp" "outB".
+
+    remove_at rightc "comp".
+    r_move_at rightc "outB" 0.
+    r_move_at rightc "outA" 1.
+    arg_move_at leftc "outA" "inA" 0.
+    r_move_at leftc "inB" "inA".
     reflexivity.
-  Qed.
+ Qed.
 
   Lemma real_rewr : r_rewr rpsReal rps_simp.
     rewrite /rpsReal /rpsRealF /rpsRealP.
@@ -191,42 +187,70 @@ Section RPS.
     vm_compute RChans; rewrite //=.
 
     simpl.
-    r_weakstr "committedA" "comA".
-    r_weakstr "committedB" "comB".
-    r_str_inp "committedA" "inA".
-    r_str_inp "committedB" "inB".
-    r_move "openA" 0; arg_focus "committedB".
-    r_str "openA" "committedB".
-    r_move "openB" 0; arg_focus "committedA".
-    r_str "openB" "committedA".
-    repeat r_clean.
-    r_subst "comA" "openA".
-    r_str "openA" "comA".
-    r_str_inp "openA" "inA".
-    r_str "valA" "openA".
+    trans_at leftc "committedA" "openB" "comA" tyPlay.
+    arg_move_at leftc "openB" "committedA" 0.
+    subst_at leftc "committedA" "openB".
+    hid_str_at leftc "committedA" "openB".
 
-    r_subst "comB" "openB".
-    r_str "openB" "comB".
-    r_str_inp "openB" "inB".
-    r_str "valB" "openB".
-    repeat r_clean.
+    trans_at leftc "committedB" "openA" "comB" tyPlay.
+    arg_move_at leftc "openA" "committedB" 0.
+    subst_at leftc "committedB" "openA".
+    hid_str_at leftc "committedB" "openA".
 
-    r_subst "valB" "outA".
-    r_str "outA" "valB".
-    r_subst "valA" "outB".
-    r_str "outB" "valA".
-    repeat r_clean.
+    remove_at leftc "committedA".
+    remove_at leftc "committedB".
 
-    r_subst "comA" "outB".
-    r_str "outB" "comA".
+    trans_at leftc "openA" "valA" "comB" tyPlay.
+    arg_move_at leftc "valA" "openA" 0.
+    subst_at leftc "openA" "valA".
+    hid_str_at leftc "openA" "valA".
+    remove_at leftc "openA".
 
-    r_subst "comB" "outA".
-    r_str "outA" "comB".
-    repeat r_clean.
+    trans_at leftc "openB" "valB" "comA" tyPlay.
+    arg_move_at leftc "valB" "openB" 0.
+    subst_at leftc "openB" "valB".
+    hid_str_at leftc "openB" "valB".
+    remove_at leftc "openB".
+
+    trans_at leftc "valA" "outB" "comA" tyPlay.
+    trans_at leftc "valA" "outB" "comB" tyPlay.
+    arg_move_at leftc "outB" "valA" 0.
+    subst_at leftc "valA" "outB".
+    hid_str_at leftc "valA" "outB".
+    remove_at leftc "valA".
+
+    trans_at leftc "valB" "outA" "comB" tyPlay.
+    trans_at leftc "valB" "outA" "comA" tyPlay.
+    arg_move_at leftc "outA" "valB" 0.
+    subst_at leftc "valB" "outA".
+    hid_str_at leftc "valB" "outA".
+    remove_at leftc "valB".
+
+    hid_str_at leftc "comA" "outA".
+    hid_str_at leftc "comB" "outB".
+
+    trans_at leftc "comA" "outB" "inA" tyPlay.
+    arg_move_at leftc "outB" "comA" 0.
+    arg_move_at leftc "outB" "inA" 1.
+    subst_at leftc "comA" "outB".
+    hid_str_at leftc "comA" "outB".
+    remove_at leftc "comA".
+
+    trans_at leftc "comB" "outA" "inB" tyPlay.
+    arg_move_at leftc "outA" "comB" 0.
+    arg_move_at leftc "outA" "inB" 1.
+    subst_at leftc "comB" "outA".
+    hid_str_at leftc "comB" "outA".
+    remove_at leftc "comB".
+
     rewrite /rps_simp.
-    simpl.
-    r_align.
+    r_move_at leftc "outB" 0.
+    r_move_at leftc "outA" 1.
+    r_move_at leftc "inB" 2.
     reflexivity.
-  Qed.
+Qed.
 
-      
+Lemma rps_no_corr : rpsReal ~~> rpsIdeal.
+  rewrite real_rewr.
+  apply ideal_rewr.
+Qed.
