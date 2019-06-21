@@ -213,3 +213,104 @@ Lemma rps_no_corr : rpsReal ~~> rpsIdeal.
   rewrite real_rewr.
   apply ideal_rewr.
 Qed.
+
+Print rps_comp.
+
+Definition rps_comp_inv_b x y :=
+  match y with
+  | None =>
+    match x with
+    | rock => rock
+    | paper => paper
+    | scissors => scissors
+    end
+  | Some false =>
+    match x with
+      | rock => paper
+      | paper => scissors
+      | scissors => rock
+    end
+  | Some true =>
+    match x with
+    | rock => scissors
+    | scissors => paper
+    | paper => rock
+    end
+      end.
+      
+
+
+Lemma rps_comp_inv_bE x y : rps_comp_inv_b x (rps_comp y x) = y. 
+induction x; induction y; done.
+Qed.
+
+Definition rpsIdeal_corr : rl :=
+[:: inr ("inA", tyPlay);
+    inr ("comB", tyPlay);
+    [:: ("inA", tyPlay)] ~> ("sendA", tyPlay) hid mret;
+    [:: ("comB", tyPlay)] ~> ("sendB", tyPlay) hid mret;
+    [::] ~> ("committedA", tyUnit) dvis tt;
+    inr ("openB", tyUnit);
+    
+    [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dhid rps_comp;
+    [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvB", tyAns) dhid rps_comp;
+    [:: ("sendB", tyPlay); ("recvB", tyAns)] ~> ("valA", tyPlay) dvis rps_comp_inv_b;
+    [:: ("recvA", tyAns)] ~> ("outA", tyAns) dvis id
+].
+
+Definition rpsReal_corr : rl :=
+  [::
+     inr ("inA", tyPlay);
+     inr ("comB", tyPlay);
+     [:: ("inA", tyPlay)] ~> ("comA", tyPlay) dhid id;
+     [:: ("comA", tyPlay)] ~> ("committedA", tyUnit) dvis (fun _ => tt);
+     [:: ("comB", tyPlay)] ~> ("committedB", tyUnit) dhid (fun _ => tt);
+     [:: ("comA", tyPlay); ("committedB", tyUnit)] ~> ("openA", tyUnit) dhid (fun _ _ => tt);
+     inr ("openB", tyUnit);
+     [:: ("comA", tyPlay); ("openA", tyUnit)] ~> ("valA", tyPlay) dvis (fun x _ => x);
+     [:: ("comB", tyPlay); ("openB", tyUnit)] ~> ("valB", tyPlay) dhid (fun x _ => x);
+     [:: ("inA", tyPlay); ("valB", tyPlay)] ~> ("outA", tyAns) dvis rps_comp
+                                            ].
+
+Lemma rps_corr : rpsReal_corr ~~> rpsIdeal_corr.
+  rewrite /rpsReal_corr /rpsIdeal_corr.
+  simpl.
+  autosubst_at leftc "comA" "committedA".
+  autosubst_at leftc "comA" "openA".
+  autosubst_at leftc "comA" "valA".
+  remove_at leftc "comA".
+  autosubst_at leftc "committedB" "openA".
+  remove_at leftc "committedB".
+  autosubst_at leftc "openA" "valA".
+  remove_at leftc "openA".
+  autosubst_at leftc "valB" "outA".
+  remove_at leftc "valB".
+
+  autosubst_at rightc "sendB" "recvA".
+  autosubst_at rightc "sendB" "recvB".
+  autosubst_at rightc "sendB" "valA".
+  remove_at rightc "sendB".
+  autosubst_at rightc "recvA" "outA".
+  remove_at rightc "recvA".
+  autosubst_at rightc "recvB" "valA".
+  remove_at rightc "recvB".
+  autosubst_at rightc "sendA" "valA".
+  autosubst_at rightc "sendA" "outA".
+  remove_at rightc "sendA".
+  align.
+  r_ext_at rightc "valA" (fun (x x0 : play) => ret x).
+    intros; rewrite rps_comp_inv_bE //=.
+    rewrite /lset //=.
+  inp_str_at leftc "committedA" "inA" tyPlay.
+  rewrite /lset //=.
+  arg_move_at leftc "valA" "inA" 0.
+  arg_move_at leftc "outA" "openB" 0.
+  inp_str_at leftc "outA" "openB" tyUnit.
+  rewrite /lset /=.
+  arg_move_at leftc "outA" "inA" 0.
+  reflexivity.
+Qed.
+  
+  
+
+     

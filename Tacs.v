@@ -440,7 +440,7 @@ Ltac get_val_at a n :=
   Check rewr_ext.
   Ltac r_ext_at a m tm :=
     let i := pos_of_at a m in
-    apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm); rewrite /React_eq //=]); simpl.
+    apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm); rewrite /React_eq //=]); unfold lset; simpl.
 
 
   Check lift_bind.
@@ -534,7 +534,7 @@ Ltac get_val_at a n :=
     (* Thing to get rid of must be in head of context in n *)
     Ltac str_at a n :=
       let i := pos_of_at a n in
-      etransitivity; [apply: (rewr_str i); [apply: erefl | done] |]; simpl.
+      etransitivity; [apply: (rewr_str i); [apply: erefl | done] |]; unfold lset; simpl.
 
 
     Arguments rewr_str_inp [N T H rs].
