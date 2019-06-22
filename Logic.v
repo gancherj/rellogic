@@ -72,11 +72,6 @@ Section RDef.
     apply (detReaction_subst _ _ _ _  (r y) (fun z => k z y) x).
   Defined.
 
-  Fixpoint React_eq ns n (r1 r2 : Reaction ns n) {struct ns} : Prop.
-    destruct ns; simpl in *.
-    apply (r1 = r2).
-    apply (forall x, React_eq _ _ (r1 x) (r2 x)).
-  Defined.
 
   Definition subst_arg (ns : list (N * T)) (n n' : N) : list (N * T) :=
   map (fun a => if a.1 == n then (n', a.2) else a) ns.
@@ -128,6 +123,7 @@ Section RDef.
 
 Definition reaction :=
   { ns : (list (N * T) * bool * (N * T)) & Reaction ns.1.1 ns.2 }.
+
 
 Definition reaction_perm (r : reaction) {ns} (Hp : Perm (tag r).1.1 ns) : reaction.
     destruct r; simpl in *.
@@ -185,6 +181,7 @@ Definition rlist_subst_arg (r : rlist) (n n' : N) : rlist :=
 Definition rlist_subst (r : rlist) (n n': N) : rlist :=
   map (fun a => match a with | inr m => inr (if m.1 == n then (n', m.2) else m) | inl r => inl (reaction_subst r n n') end) r.
 
+
   Fixpoint RHiddens (r : rlist) : seq N :=
     match r with
       | nil => nil
@@ -214,6 +211,13 @@ Fixpoint ROutputs (r : rlist) : seq N:=
         | inl (existT t _) => t.2.1
                                 end.
 
+    Definition chan_ty_of (x : reaction + (N * T)) : (N * T) :=
+      match x with
+        | inr a => a
+        | inl (existT t _) => t.2
+                                end.
+      
+
   Definition RSeqs (r : rlist) : seq N:=
     map chan_of r.
 
@@ -237,10 +241,12 @@ Fixpoint ROutputs (r : rlist) : seq N:=
            match r with
            | inl (existT (a, b, c) r) => if i c.1 then inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, false, c) r) else inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, b, c) r) 
            | inr m => inr m end) rs.                                                                                            
+  Check all.
+  
     Definition r_compat (r1 r2 : rlist) :=
-      forall x, (x \in RChans r1) && (x \in RChans r2) ->
+      all (fun x => (x \in RChans r2) ==>
                                                         [|| ((x \in RInputs r1) && (x \in ROutputs r2)) |
-                                                         ((x \in RInputs r2) && (x \in ROutputs r1))]. 
+                                                         ((x \in RInputs r2) && (x \in ROutputs r1))]) (RChans r1).
 
   Definition rlist_nub_hide (r : rlist) (chans1 chans2 : seq N) : rlist :=
     pmap (fun rct =>
@@ -254,6 +260,12 @@ Fixpoint ROutputs (r : rlist) : seq N:=
     let c1 := RChans r1 in
     let c2 := RChans r2 in
     (rlist_nub_hide r1 c1 c2) ++ (rlist_nub_hide r2 c1 c2).
+
+  Fixpoint React_eq ns n (r1 r2 : Reaction ns n) {struct ns} : Prop.
+    destruct ns; simpl in *.
+    apply (r1 = r2).
+    apply (forall x, React_eq _ _ (r1 x) (r2 x)).
+  Defined.
 
 Notation "G ~> c b D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, b, c) D)) (at level 80, c at level 9, b at level 9).
 
@@ -287,7 +299,7 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
       n' \notin RChans rs ->
       forall (H : (tag r1).1.1 = (tag r2).1.1),
         let p := reaction_pair r1 r2 n' H in
-        r_rewr_bi rs (inl p.1.1 :: inl p.1.2 :: inl p.2 :: remove (remove rs n1) n2)
+        r_rewr_bi rs (inl p.1.1 :: inl p.1.2 :: inl p.2 :: remove2 rs n1 n2)
   | rewr_subst : forall (rs : rlist) pos1 pos2 ns ns' b1 b2 h f (r : detReaction ns h) (k : Reaction (h :: (ns ++ ns')) f), 
       List.nth_error rs pos1 = Some (ns ~> h b1 (lift_det r)) ->
       List.nth_error rs pos2 = Some (h :: (ns ++ ns') ~> f b2 k) ->

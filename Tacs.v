@@ -123,7 +123,6 @@ Section Lems.
       done.
     Qed.
 
-
     Lemma lift_bind (n : N) t f (m : meas (denomT t)) (k : denomT t -> meas (denomT f.2)) :
       @React_eq _ _ _ nil f (mbind m k) (rbind nil nil (n,t) f m k).
       unlock rbind.
@@ -200,6 +199,38 @@ Section Lems.
       done.
       Qed.
 
+    Check rewr_ch_trans.
+
+    Lemma rewr_ch_trans_rev (rs : rlist N T) pos1 pos2 n g1 g2 f1 f2 (d : Reaction g1 f1) (d' : Reaction g2 f2) b1 b2 :
+      pos2 < size rs ->
+      pos2 != pos1 ->
+      List.nth_error rs pos1 = Some (g1 ~> f1 b1 d) ->
+      List.nth_error rs pos2 = Some (n :: g2 ~> f2 b2 (fun _ => d')) ->
+      n \in g1 -> f1 \in g2 ->
+      rs <~~> lset rs pos2 (g2 ~> f2 b2 d').
+      intros.
+      symmetry.
+      have heq: rs = lset (lset rs pos2 (g2 ~> f2 b2 d')) pos2 (n :: g2 ~> f2 b2 (fun _ => d')).
+        rewrite lset_lset.
+        rewrite -lset_nth_error.
+        done.
+        done.
+        apply H3.
+        done.
+      rewrite {2}heq.
+      apply: (rewr_ch_trans _ _ _ pos1 pos2).
+      rewrite nth_error_lset.
+      rewrite (negbTE H1).
+      apply H2.
+      done.
+      rewrite nth_error_lset.
+      rewrite eq_refl.
+      done.
+      done.
+      done.
+      done.
+  Qed.
+
     Check rewr_hid_ws.
 
     Lemma rewr_hid_ws_rev (rs : rlist N T) pos1 pos2 g1 g2 h d c (d' : Reaction g2 c) b :
@@ -254,6 +285,16 @@ Section Lems.
       done.
    Qed.
 
+    Check rewr_fold.
+
+    Lemma rewr_fold_rev (rs : rlist N T) g1 g2 h (r : Reaction g1 h) n (k : denomT h.2 -> Reaction (g1 ++ g2) n) b :
+      h.1 \notin RChans rs ->
+      h.1 != n.1 ->
+      [:: g1 ~> h false r, h :: g1 ++ g2 ~> n b k & rs]
+        <~~>
+        ((g1 ++ g2 ~> n b rbind g1 g2 h n r k) :: rs).
+      intros; symmetry; apply: rewr_fold; done.
+    Qed.
 
 End Lems.
 
@@ -373,9 +414,8 @@ Ltac get_val_at a n :=
     | leftc =>
       etransitivity; [ensure_bi_r; t | ]
     | rightc =>
-      eapply rewr_r_l; [t | ]
-                         end.
-    
+      etransitivity; [ | ensure_bi_r; symmetry; t]
+                 end.
 
 (* REWRITING TACTICS *)
 
@@ -440,8 +480,7 @@ Ltac get_val_at a n :=
   Check rewr_ext.
   Ltac r_ext_at a m tm :=
     let i := pos_of_at a m in
-    apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm); rewrite /React_eq //=]); unfold lset; simpl.
-
+    apply_bi_at a ltac:(apply: (rewr_ext i); [ apply: erefl | instantiate (1 := tm) ]); unfold lset; simpl.
 
   Check lift_bind.
   Check lift_bind1.
@@ -462,6 +501,10 @@ Ltac get_val_at a n :=
   Check rewr_fold.
     Arguments rewr_fold [N T H rs].
 
+    (* requires the sampling sequence is first, the sequence that uses the sampling is second, and the arguments of the second sequence is lined up with the sampling sequent ( with the first arg being the sampled value) *)
+    Ltac fold_at a :=
+      apply_bi_at a ltac:(apply: rewr_fold_rev; [done | done]); unlock rbind; simpl.
+
     (* g0 = first half of partition of context *)
   Ltac unfold_at_with a g0 :=
     apply_bi_at a ltac:(apply: (rewr_fold g0); [done | done ]); unfold lset_seq; simpl.
@@ -475,10 +518,11 @@ Ltac get_val_at a n :=
                                            end.
     Arguments rewr_pair [N T H rs].
 
+  (* p is a name. needs to be fresh *)
   Ltac pair_at a n0 n1 p :=
     let i := pos_of_at a n0 in
     let j := pos_of_at a n1 in
-    apply_bi_at a ltac:(apply: (rewr_pair i j p); [apply: erefl | apply : erefl | done | done]); unfold eq_rect_r; simpl; unfold eq_rect_r; simpl.
+    apply_bi_at a ltac:(apply: (rewr_pair i j p); [apply: erefl | apply : erefl | done | done]); unfold eq_rect_r; simpl; unfold eq_rect_r; unfold remove2; simpl.
 
     Arguments rewr_subst [N T H rs].
 
@@ -526,6 +570,14 @@ Ltac get_val_at a n :=
       let i := pos_of_at a n0 in
       let j := pos_of_at a n1 in
       apply_bi_at a ltac:(apply: (rewr_ch_trans i j (n, ty)); [apply: erefl | apply: erefl | done | done]); rewrite /lset; simpl.
+
+    Check rewr_ch_trans_rev.
+    Arguments rewr_ch_trans_rev [N T H rs].
+    Ltac trans_rev_at a n0 n1 n :=
+      let i := pos_of_at a n0 in
+      let j := pos_of_at a n1 in
+      arg_move_at a n1 n 0%N;
+      apply_bi_at a ltac:(apply: (rewr_ch_trans_rev i j); [ done | done | apply: erefl | apply: erefl | done | done]); rewrite /lset /=.
                        
     (* asymmetric tactics *)
 

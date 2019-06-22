@@ -252,10 +252,12 @@ Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * 
   rewrite /lset //=.
 
 
-  eapply rewr_bi_trans.
+
+
+  rewrite /swap /=.
   r_ext_at leftc 0 (fun (_ : denomT m.2) => k).
   clear.
-
+      simpl.
       move: G2 h n k.
       induction G1.
       simpl.
@@ -271,15 +273,22 @@ Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * 
       done.
 
   rewrite /lset /=.
-
-  rewrite /swap /=.
-  Check rewr_add_ch_rev.
+  etransitivity.
   apply: (rewr_add_ch_rev _ _ _ 0 m).
   done.
   apply: erefl.
   rewrite in_cons mem_cat H2 !orbT //=.
   rewrite /lset //=.
+
   r_move_at leftc 0 1.
+  reflexivity.
+Qed.
+
+Lemma congr_makeSim (rs rs' rs'' : rlist N T) :
+  rs <~~> (rs'' ||| rs') ->
+  rs ~~> (rs'' ||| rs').
+  intros; eapply rewr_r_l.
+  symmetry; apply H0.
   reflexivity.
 Qed.
 

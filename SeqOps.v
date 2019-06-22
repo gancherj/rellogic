@@ -807,6 +807,9 @@ Lemma nth_error_eqP {A} (xs xs' : seq A) :
   done.
 Qed.
 
+Definition remove2 {A} (xs : seq A) (n1 n2 : nat) :=
+  if n1 < n2 then remove (remove xs n1) (predn n2) else remove (remove xs n2) (predn n1).
+  
 End Surgery.
 
 
