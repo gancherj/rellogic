@@ -76,7 +76,7 @@ Ltac align_rec rs c :=
   match rs with
     | nil => idtac
     | ?r :: ?rs' =>
-      r_move_at leftc (chan_of r) c;
+      try r_move_at leftc (chan_of r) c;
       align_rec rs' (S c)
                 end.
       
