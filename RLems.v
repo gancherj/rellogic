@@ -20,11 +20,11 @@ Section Theory.
     apply Perm_rot.
   Qed.
 
-  Fixpoint RChans_wf (rs : rlist N T) :=
-    match rs with
-    | nil => true
-    | (r :: rs) => all (fun x => x \in RSeqs _ _ rs) (RArgs _ _ [:: r]) && RChans_wf rs
-                       end.
+  Definition RChans_defined (rs : rlist N T) :=
+    all (fun r => all (fun x => x \in RSeqs _ _ rs) (RArgs _ _ [:: r])) rs.
+
+  Definition R_wf (rs : rlist N T) :=
+    uniq (RSeqs _ _ rs) && RChans_defined rs. 
 
   Lemma RSeqs_remove (rs : rlist N T) i :
     RSeqs _ _ (remove rs i) = remove (RSeqs _ _ rs) i.
@@ -73,9 +73,13 @@ Section Theory.
   Qed.
 
 
-  Lemma RChans_wfP (rs : rlist N T) :
-    RChans_wf rs ->
+  Lemma RChans_definedP (rs : rlist N T) :
+    RChans_defined rs ->
     RChans rs =i RSeqs _ _ rs.
+    admit.
+  Admitted.
+
+  (*
     induction rs.
     done.
     simpl.
@@ -110,17 +114,21 @@ Section Theory.
     move => -> //= ; rewrite eq_refl //=.
     move => hc; rewrite (negbTE hc) //= -IHrs /RChans //=.
   Qed.
+*)
       
     
 
 
   Lemma RChans_eqP (i : nat) (rs rs' : rlist N T) :
-    RChans_wf rs ->
-    RChans_wf rs' ->
+    RChans_defined rs ->
+    RChans_defined rs' ->
     size rs = i ->
     size rs' = i ->
     (forall n c, List.nth_error rs n = Some c -> exists c', List.nth_error rs' n = Some c' /\ chan_of c = chan_of c') ->
     RChans rs =i RChans rs'.
+    admit.
+  Admitted.
+  (*
     move: rs rs'; induction i.
     move => rs rs'.
     move => _ _.
@@ -137,7 +145,7 @@ Section Theory.
     move/eqP; rewrite /eq_op //=; move/eqP => h2.
     intros.
     move => a.
-    rewrite !RChans_wfP //=.
+    rewrite !RChans_definedP //=.
     have: chan_of r = chan_of r'.
     move: (H0 0 r).
     move/(_ erefl).
@@ -148,9 +156,11 @@ Section Theory.
     done.
     move => ->.
     rewrite !in_cons.
-    rewrite -!RChans_wfP //=.
+    rewrite -!RChans_definedP //=.
     erewrite IHi.
     apply: erefl.
+
+
     move/andP: Hrs; elim; done.
     move/andP: Hrs'; elim; done.
     done.
@@ -163,6 +173,7 @@ Section Theory.
     move/andP: Hrs'; elim; done.
     move/andP: Hrs; elim; done.
 Qed.
+*)
 
   Lemma notin_removeP {A : eqType} (xs : seq A) i x :
     x \notin xs -> x \notin (remove xs i).

@@ -195,51 +195,28 @@ Lemma fset_of_seq_flatten {A : choiceType} (s : seq (seq A)) :
 Qed.
 
 
-Fixpoint lfind {A : eqType} (p : A -> bool) (xs : seq A) :=
+Fixpoint lfind {A } (p : A -> bool) (xs : seq A) :=
   match xs with
   | nil => None
   | x :: xs' => if p x then Some x else lfind p xs'
                                                    end.
 
-Inductive lfind_spec {A : eqType} (p : A -> bool) (xs : seq A) :=
-  | lfind_some x : lfind p xs = Some x -> x \in xs -> p x -> lfind_spec p xs
-  | lfind_none : lfind p xs = None -> all (fun x => ~~ p x) xs -> lfind_spec p xs.
+Definition all_counter {A} (p : A -> bool) (xs : seq A) :=
+  ~~ (isSome (lfind (fun x => ~~ (p x)) xs)).
 
-Lemma lfindP {A : eqType} (p : A -> bool) xs : lfind_spec p xs.
-  induction xs.
-  apply lfind_none; rewrite //=.
-  remember (p a) as b; symmetry in Heqb; destruct b.
-  apply (lfind_some p (a :: xs) a); rewrite //=.
-  rewrite Heqb //=.
-  rewrite in_cons eq_refl orTb //=.
-  destruct IHxs.
-  apply (lfind_some p (a :: xs) x).
-  rewrite //= Heqb //=.
-  rewrite in_cons i orbT //=.
-  done.
-  apply lfind_none; rewrite //=.
-  rewrite Heqb //= e //=.
-  apply/andP; split.
-  rewrite Heqb //=.
-  done.
-Qed.
-
-Definition all_counter {A : eqType} (p : A -> bool) (xs : seq A) :=
-  (lfind (fun x => ~~ p x) xs) == None .
-
-Lemma all_counter_cons {A : eqType} (p : A -> bool) xs x :
+Lemma all_counter_cons {A} (p : A -> bool) xs x :
   all_counter p (x :: xs) = ((p x)) && all_counter p xs.
 rewrite /all_counter //=.
 destruct (p x); rewrite //=.
 Qed.
 
-Definition all_counterP {A : eqType} (p : A -> bool) xs :
+Definition all_counterP {A} (p : A -> bool) xs :
   all p xs = all_counter p xs.
   induction xs; rewrite //=.
   rewrite all_counter_cons IHxs //=.
 Qed.
 
-Definition all_counterPn {A : eqType} (p : A -> bool) xs :
+Definition all_counterPn {A} (p : A -> bool) xs :
   isSome (lfind (fun x => ~~ p x) xs) = ~~ (all p xs).
   rewrite all_counterP /all_counter //=.
   destruct (lfind (fun x => ~~ p x) xs); rewrite //=.
