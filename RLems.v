@@ -295,13 +295,6 @@ Lemma rewr_add_ch_fold : forall (rs : rlist N T) (G1 G2 : seq (N * T)) (h : N * 
   reflexivity.
 Qed.
 
-Lemma congr_makeSim (rs rs' rs'' : rlist N T) :
-  rs <~~> (rs'' ||| rs') ->
-  rs ~~> (rs'' ||| rs').
-  intros; eapply rewr_r_l.
-  symmetry; apply H0.
-  reflexivity.
-Qed.
 
   (*
 

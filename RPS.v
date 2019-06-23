@@ -107,8 +107,8 @@ Section RPS.
                      end.
 
   Definition rpsIdeal : rl :=
-    [:: inr ("inA", tyPlay);
-      inr ("inB", tyPlay);
+    [:: inp ("inA", tyPlay);
+      inp ("inB", tyPlay);
       [:: ("inA", tyPlay)] ~> ("sendA", tyPlay) hid mret;
       [:: ("inB", tyPlay)] ~> ("sendB", tyPlay) hid mret;
       [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dhid rps_comp;
@@ -116,6 +116,7 @@ Section RPS.
       [:: ("recvA", tyAns)] ~> ("outA", tyAns) dvis id;
       [:: ("recvB", tyAns)] ~> ("outB", tyAns) dvis id
     ].
+
 
   Definition rpsRealP (p : bool) :rl :=
     let me := if p then "A" else "B" in

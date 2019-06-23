@@ -41,15 +41,15 @@ Notation "x1 ~~> x2" := (r_rewr x1 x2) (at level 40).
 Notation "x1 <~~> x2" := (r_rewr_bi x1 x2) (at level 40).
 
 
+Notation "'inp' x" := (inr x) (at level 80, format "'inp'  x  '//'").
 
-Notation "G ~> c 'vis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, true, c) D)) (at level 80).
+Notation "G ~> c 'vis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, true, c) D)) (at level 80, format "G  ~> c  'vis'  D  '//'").
 
-Notation "G ~> c 'hid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, false, c) D)) (at level 80).
+Notation "G ~> c 'hid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G, false, c) D)) (at level 80, format "G  ~>  c  'hid'  D  '//'").
 
-Notation "G ~> c 'dvis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, true, c) (lift_det G c D))) (at level 80).
+Notation "G ~> c 'dvis' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, true, c) (lift_det G c D))) (at level 80, format "G  ~>  c  'dvis'  D  '//'").
 
-
-Notation "G ~> c 'dhid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, false, c) (lift_det G c D))) (at level 80).
+Notation "G ~> c 'dhid' D" := (inl (existT (fun ns => Reaction ns.1.1 ns.2) (G%SEQ, false, c) (lift_det G c D))) (at level 80, format "G  ~>  c  'dhid'  D  '//'").
 
 
 Notation "x ||| y" := (rlist_comp_hide _ _ x y) (at level 40).

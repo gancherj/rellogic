@@ -233,5 +233,52 @@ Qed.
 
 
   (* TODO corruption case *)
-       
-       
+
+  Definition realCorr: rl :=
+    [:: [::] ~> ("keygen", tyKey) vis (munif key);
+        [:: ("keygen", tyKey)] ~> ("keyR", tyKey) dhid id;
+        [:: ("keygen", tyKey)] ~> ("keyS", tyKey) dvis id;
+        inr ("in", tyCtx);
+        [:: ("in", tyCtx)] ~> ("leak", _) dvis id;
+        inr ("ans", tyUnit);
+        [:: ("in", tyCtx); ("ans", tyUnit)] ~> ("deliv", tyCtx) dhid (fun x _ => x);
+        [:: ("deliv", tyCtx); ("keyR", tyKey)] ~> ("outR", tyMsg) dvis (fun c k => dec c k)].
+
+  Definition idealCorr : rl :=
+    [:: [::] ~> ("keygen", tyKey) vis (munif key);
+        [:: ("keygen", tyKey)] ~> ("keyS", tyKey) dvis id;
+        inr ("in", tyCtx);
+        [:: ("in", tyCtx); ("keygen", tyKey)] ~> ("dec", tyMsg) dhid dec;
+        [:: ("dec", tyMsg)] ~> ("query", tyUnit) dhid (fun _ => tt);
+        [:: ("in", tyCtx)] ~> ("leak", tyCtx) dvis id;
+        inr ("ans", tyUnit);
+        [:: ("dec", tyMsg); ("ans", tyUnit)] ~> ("deliv", tyMsg) dhid (fun x _ => x);
+        [:: ("deliv", tyMsg)] ~> ("outR", tyMsg) dvis id].
+
+  Lemma realCorr_wf : R_wf _ _ realCorr.
+    done.
+  Qed.
+
+  Lemma idealCorr_wf : R_wf _ _ realCorr.
+    done.
+  Qed.
+
+  (* figure 13: query is unused? query shouldn't be visible *)
+
+  Theorem corr_equiv : realCorr ~~> idealCorr.
+    rewrite /realCorr /idealCorr.
+    autosubst_at leftc "keyR" "outR".
+    remove_at leftc "keyR".
+    autosubst_at leftc "deliv" "outR".
+    remove_at leftc "deliv".
+    autosubst_at rightc "dec" "deliv".
+    autosubst_at rightc "dec" "query".
+    remove_at rightc "dec".
+    remove_at rightc "query".
+    autosubst_at rightc "deliv" "outR".
+    remove_at rightc "deliv".
+    arg_move_at leftc "outR" "ans" 2.
+    reflexivity.
+  Qed.
+
+

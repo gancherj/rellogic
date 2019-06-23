@@ -241,7 +241,10 @@ Fixpoint ROutputs (r : rlist) : seq N:=
            match r with
            | inl (existT (a, b, c) r) => if i c.1 then inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, false, c) r) else inl (existT (fun ns => Reaction ns.1.1 ns.2) (a, b, c) r) 
            | inr m => inr m end) rs.                                                                                            
-  Check all.
+
+  Definition r_comparable (r1 r2 : rlist) :=
+    ((RInputs r1) ==i (RInputs r2)) && ((ROutputs r1 ==i ROutputs r2)).
+    
   
     Definition r_compat (r1 r2 : rlist) :=
       all (fun x => (x \in RChans r2) ==>
