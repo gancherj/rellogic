@@ -130,7 +130,7 @@ Definition eg2 : rl :=
 
   Arguments rbind [N T H ].
   
-Lemma eg_step1 : ElGamal_real ~~> eg1.
+Lemma eg_step1 : ElGamal_real <~~> eg1.
   rewrite /ElGamal_real /eg1.
   simpl.
   unfold_bind0_at rightc "samp" "samp1" tyZq.
@@ -157,12 +157,12 @@ Lemma eg_step1 : ElGamal_real ~~> eg1.
   reflexivity.
 Qed.
 
-Lemma eg_factor_eq : r_rewr eg1 (eg1_factor ||| ddh0).
+Lemma eg_factor_eq : eg1 <~~> (eg1_factor ||| ddh0).
   r_move_at leftc 0 6.
   reflexivity.
 Qed.
 
-Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
+Lemma eg_step2 : (eg1_factor ||| ddh1) <~~> eg2.
   rewrite /rlist_comp_hide //= /eg2.
 
   unfold_bind0_at leftc "samp" "x" tyZq.
@@ -192,7 +192,7 @@ Lemma eg_step2 : r_rewr (eg1_factor ||| ddh1) eg2.
   reflexivity.
 Qed.
 
-Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
+Lemma eg_step3 : eg2 <~~> ElGamal_ideal.
   rewrite /eg2.
   simpl.
   rewrite /ElGamal_ideal.
@@ -239,31 +239,23 @@ Lemma eg_step3 : r_rewr eg2 ElGamal_ideal.
   rewrite -Hop.
   rewrite -Zp_addA.
   rewrite Zp_addNz Zp_addC Zp_add0z //=.
-  rewrite /lset /=.
- 
- eapply rewr_r_l.
-
+ rename_at leftc "t" "z".
   r_move "c" 0.
-  r_move "pk" 1.
-  r_move "z" 2.
-  arg_move_at leftc "c" "z" 0.
   r_move_at leftc "z" 0.
+  etransitivity.
+  symmetry.
   apply: (rewr_add_ch_fold).
   done.
   done.
-  instantiate (1 := ("m", tyG)).
   done.
- rename_at leftc "t" "z".
- r_move_at leftc "z" 0.
- r_move_at leftc "c" 1.
- r_move_at leftc "pk" 2.
- r_move_at leftc "x" 3.
- arg_move_at leftc "c" "y" 1.
- arg_move_at leftc "c" "pk" 2.
- reflexivity.
+  simpl.
+  align.
+  arg_move_at leftc "c" "y" 0.
+  arg_move_at leftc "c" "pk" 2.
+  reflexivity.
 Qed.
 
-Lemma ElGamal_secure: r_rewr ddh0 ddh1 -> r_rewr ElGamal_real ElGamal_ideal.
+Lemma ElGamal_secure: ddh0 <~~> ddh1 -> ElGamal_real <~~> ElGamal_ideal.
   intro.
   etransitivity.
   apply eg_step1.
@@ -271,18 +263,10 @@ Lemma ElGamal_secure: r_rewr ddh0 ddh1 -> r_rewr ElGamal_real ElGamal_ideal.
   apply eg_factor_eq.
   etransitivity.
   instantiate (1 := eg1_factor ||| ddh1).
-  apply rewr_congr.
-  rewrite /eg1_factor /ddh0.
-  rewrite /r_compat.
-  simpl.
-  intro.
-  move/andP; elim.
-  intro.
-  rewrite mem_seq1; move/eqP => ->.
+  apply: rewr_congr.
   done.
-  rewrite /r_compat /eg1_factor /ddh1.
-  simpl.
-  intro; move/andP; elim; intro; rewrite mem_seq1; move/eqP => ->; done.
+  done.
+  done.
   etransitivity.
   apply eg_step2.
   apply eg_step3.

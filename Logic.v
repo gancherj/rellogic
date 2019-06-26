@@ -324,6 +324,11 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
       n \in g1 ->
       f1 \in g2 ->
       r_rewr_bi rs (lset rs pos2 (n :: g2 ~> f2 b2 (fun _ => d')))
+  | rewr_congr : forall rs1 rs2 rs3,
+      r_compat rs3 rs1 ->
+      r_compat rs3 rs2 ->
+      r_rewr_bi rs1 rs2 ->
+      r_rewr_bi (rlist_comp_hide rs3 rs1) (rlist_comp_hide rs3 rs2)
   | rewr_rename : forall rs n n',
       n \notin RInputs rs ->
       n \notin ROutputs rs ->
@@ -343,10 +348,6 @@ Inductive r_rewr_bi : rlist -> rlist -> Prop :=
   | rewr_str_inp : forall (rs : rlist) pos (i : N * T) g b f (k : Reaction g f),
       List.nth_error rs pos = Some (i :: g ~> f b (fun _ => k)) ->
       i.1 \in RInputs rs ->
-      r_rewr rs (lset rs pos (g ~> f b k))         
-  | rewr_congr : forall rs1 rs2 rs3,
-      r_compat rs3 rs1 ->
-      r_compat rs3 rs2 ->
-      r_rewr (rlist_comp_hide rs3 rs1) (rlist_comp_hide rs3 rs2).
+      r_rewr rs (lset rs pos (g ~> f b k)).
 
 End RDef.

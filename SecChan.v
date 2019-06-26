@@ -138,9 +138,7 @@ Section SecChan.
          [::] ~> ("keygen", tyKey) hid keyGen;
           [:: ("query", tyUnit); ("keygen", tyKey)] ~> ("leak", tyCtx) vis (fun _  k => enc mzero k)].
 
-    (* TODO split up so QED finishes *)
-
-  Theorem noCorr_1 : CPA true ~~> CPA false -> realNoCorr ~~> (cpa_sim ||| (CPA true)).
+  Theorem noCorr_1 : CPA true <~~> CPA false -> realNoCorr <~~> (cpa_sim ||| (CPA true)).
     intros.
     rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at leftc "deliv" "outR".
@@ -193,7 +191,7 @@ Section SecChan.
    reflexivity.
 Qed.
 
-  Theorem noCorr_2 : (cpa_sim ||| (CPA false)) ~~> (rps_nocorr_sim ||| idealNoCorr).
+  Theorem noCorr_2 : (cpa_sim ||| (CPA false)) <~~> (rps_nocorr_sim ||| idealNoCorr).
     rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at rightc "query" "leak".
     remove_at rightc "query".
@@ -217,7 +215,7 @@ Qed.
    reflexivity.
   Qed.
 
-  Theorem noCorr : CPA true ~~> CPA false -> exists sim, r_compat _ _ sim idealNoCorr /\ realNoCorr ~~> (sim ||| idealNoCorr).
+  Theorem noCorr : CPA true <~~> CPA false -> exists sim, r_compat _ _ sim idealNoCorr /\ realNoCorr <~~> (sim ||| idealNoCorr).
     intros; exists rps_nocorr_sim; split.
     done.
     etransitivity.
@@ -228,11 +226,10 @@ Qed.
     done.
     instantiate (1 := CPA false).
     done.
+    done.
     apply noCorr_2.
   Qed.
 
-
-  (* TODO corruption case *)
 
   Definition realCorr: rl :=
     [:: [::] ~> ("keygen", tyKey) vis (munif key);
