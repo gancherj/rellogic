@@ -335,7 +335,46 @@ Module OT.
     let c2 := eval compute in (ofind_val (RSeqs _ _ rs2) (fun x => x \notin (RSeqs _ _ rs1))) in
     idtac c1; idtac c2.
 
-  Lemma OT_10 : OT_real9 <~~> (OT_hc_sim ||| hcBitPair_real).
+  Definition OT_10_middle :=
+    [:: [:: ("p", tyTDP)] ~> ("otp", tyTDP) hid [eta mret]
+     ; [:: ("b", tyPair tyBool tyBool)] ~> ("otb", tyPair tyBool tyBool) hid [eta mret]
+     ; [:: ("x", tyPair tyD tyD)] ~> ("y", tyPair tyD tyD) hid [eta mret]
+     ; inp ("m", tyPair tyBool tyBool)
+     ; inp ("i", tyBool)
+     ;
+      [:: ("p", tyTDP); ("i", tyBool); ("y", tyPair tyD tyD)] ~> ("z", tyPair tyD tyD) hid 
+     (fun (x : _) (x0 : _) (x1 : _) =>
+      ret pr (fun b : bool => if b == x0 then sval x (pget x1 b) else pget x1 b))
+     ;
+      [:: ("otb", tyPair tyBool tyBool); ("m", tyPair tyBool tyBool)] ~> 
+     ("c", tyPair tyBool tyBool) hid (fun x x0 : _ =>
+                                      ret pr (fun b : bool => pget x b xor pget x0 b))
+     ;
+      [:: ("c", tyPair tyBool tyBool); ("i", tyBool); ("y", tyPair tyD tyD);
+          ("m", tyPair tyBool tyBool)] ~> ("otx", tyPair tyBool tyBool) hid 
+     (fun (x : _) (x0 : _) (x1 : _) (x2 : _) =>
+      ret pr (fun b : bool => if b == x0 then B (pget x1 b) xor pget x2 b else pget x b))
+     ;
+      [:: ("m", tyPair tyBool tyBool); ("i", tyBool)] ~>("o", tyBool) vis 
+     (fun (x : _) (x0 : _) => ret pget x x0)
+     ; [:: ("i", tyBool)] ~>("leakRRi", tyBool) vis [eta mret]
+     ; [:: ("p", tyTDP)] ~>("leakRNf", tyTDP) vis [eta mret]
+     ; [:: ("p", tyTDP)] ~>("leakRRf", tyTDP) vis [eta mret]
+     ; [:: ("y", tyPair tyD tyD)] ~>("leakRRy", tyPair tyD tyD) vis [eta mret]
+     ; [:: ("z", tyPair tyD tyD)] ~>("leakRNz", tyPair tyD tyD) vis [eta mret]
+     ; [:: ("otx", tyPair tyBool tyBool)] ~>("leakRNx", tyPair tyBool tyBool) vis [eta mret]
+     ; [:: ("otx", tyPair tyBool tyBool)] ~>("leakRRx", tyPair tyBool tyBool) vis [eta mret]
+     ; [::] ~> ("p", tyTDP) hid munif [finType of TDP]
+     ; [::] ~> ("w", tyPair tyD tyD) hid munif D ** munif D
+     ;
+      [:: ("p", tyTDP); ("w", tyPair tyD tyD)] ~> ("x", tyPair tyD tyD) hid 
+     (fun (a : _) (a0 : _) => ret (sval a a0.1, sval a a0.2))
+     ;
+      [:: ("w", tyPair tyD tyD)] ~> ("b", tyPair tyBool tyBool) hid (fun a : _ =>
+                                                                     ret (B a.1, B a.2))
+     ].
+
+  Lemma OT_10_1 : OT_10_middle <~~> (OT_hc_sim ||| hcBitPair_real).
     rewrite /OT_real9 /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at rightc "leakf_pair" "otp".
     remove_at rightc "leakf_pair".
@@ -346,6 +385,10 @@ Module OT.
     autosubst_at rightc "otp" "z".
     autosubst_at rightc "otp" "leakRNf".
     autosubst_at rightc "otp" "leakRRf".
+    reflexivity.
+  Qed.
+
+  Lemma OT_10_2 : OT_real9 <~~> OT_10_middle.
     remove_at rightc "otp".
     rename_at leftc "otp" "p".
     rename_at leftc "otw" "w".
@@ -356,7 +399,11 @@ Module OT.
     align.
     arg_move_at leftc "y" "p" 0.
     reflexivity.
-    Admitted.
+  Qed.
+
+  Lemma OT_10 : OT_real9 <~~> (OT_hc_sim ||| hcBitPair_real).
+    rewrite -OT_10_1; apply OT_10_2.
+  Qed.
 
   Definition OT_Sim : rl :=
     [::
@@ -374,6 +421,7 @@ Module OT.
        [:: ("z", tyPair tyD tyD)] ~> ("leakRNz", _) dvis id;
        [:: ("x", tyPair tyBool tyBool)] ~> ("leakRNx", _) dvis id;
        [:: ("x", tyPair tyBool tyBool)] ~> ("leakRRx", _) dvis id].
+
 
   Lemma OT_11 : (OT_hc_sim ||| hcBitPair_ideal) ~~> (OT_Sim ||| OT_ideal_clean).
     rewrite /rlist_comp_hide; vm_compute RChans; simpl.
@@ -394,7 +442,6 @@ Module OT.
     autosubst_at leftc "y" "otx".
     remove_at leftc "y".
     rename_at leftc "x" "y".
-    align.
     r_move_at leftc "b" 0.
     r_move_at leftc "c" 1.
     fold_at leftc.
@@ -437,8 +484,7 @@ Module OT.
     destruct x0; rewrite /pr //=.
     intros.
     destruct x; rewrite /pr //=.
- Admitted.
- (* Qed. *)
+ Qed.
 
   Theorem OT_secure : hcBit_real <~~> hcBit_ideal -> OT_real ~~> (OT_Sim ||| OT_ideal).
     intros.
