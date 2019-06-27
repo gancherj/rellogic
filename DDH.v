@@ -62,9 +62,7 @@ Definition q := order.
 
   Definition rl := rlist [choiceType of string] [choiceType of ty].
 
-
   Open Scope string_scope.
-
 
 Definition ddh0 : rl :=
 [:: [::] ~> ("samp", tyPair (tyPair tyG tyG) tyG)
@@ -79,59 +77,49 @@ Definition ddh1 : rl :=
          z <- munif [finType of 'Z_q];
          ret (exp x, exp y, exp z))].
 
-Definition ElGamal_real : rl :=
+Definition ElGamal (b : bool) : rl :=
     [:: [::] ~> ("x", tyZq) hid (x <- munif [finType of 'Z_q]; ret x);
        [:: ("x", tyZq)] ~> ("pk", tyG) dvis ((fun x  => (exp x)%g));
        inr ("m", tyG);
        [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
        [:: ("x", tyZq); ("y", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis
-                                                               (fun x y pk m => (exp y, (exp (Zp_mul x y)) * m))%fcg
+                                                               (fun x y pk m => (exp y, (exp (Zp_mul x y)) * (if b then m else @ident G _)))%fcg
                                                                ].
 
-Definition ElGamal_ideal : rl :=
-  [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
-     [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
-    [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
-    [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
-    inr ("m", tyG);
-    [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
-                                                                               (exp y, (exp z))%g)].
-
-Definition eg1 : rl :=
+Definition eg1 b : rl :=
   [:: [::] ~> ("samp", tyPair (tyPair tyG tyG) tyG) hid (x <- munif [finType of 'Z_q]; y <- munif [finType of 'Z_q]; ret (exp x, exp y, exp (Zp_mul x y))%fcg);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
      inr ("m", tyG);
      [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
-     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
+     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * (if b then m else @ident G _))%fcg)]. 
 
-Definition eg1_factor : rl :=
+Definition eg1_factor b : rl :=
   [:: inr ("samp", tyPair (tyPair tyG tyG) tyG); 
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("X", tyG) dhid (fun x => x.1.1);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Y", tyG) dhid (fun x => x.1.2);
      [:: ("samp", tyPair (tyPair tyG tyG) tyG)] ~> ("Z", tyG) dhid (fun x => x.2);
      inr ("m", tyG);
      [:: ("X", tyG)] ~> ("pk", tyG) dvis id;
-     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * m)%fcg)]. 
+     [:: ("Y", tyG); ("Z", tyG); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z pk m => (y, z * (if b then m else @ident G _))%fcg)]. 
 
-Definition eg2 : rl :=
+Definition eg2 b : rl :=
   [:: [::] ~> ("x", tyZq) hid (munif [finType of 'Z_q]);
      [:: ("x", tyZq)] ~> ("pk", tyG) dvis (fun x => exp x)%g;
     [::] ~> ("y", tyZq) hid (munif [finType of 'Z_q]);
     [::] ~> ("z", tyZq) hid (munif [finType of 'Z_q]);
     inr ("m", tyG);
     [:: ("y", tyZq); ("z", tyZq); ("pk", tyG); ("m", tyG)] ~> ("c", tyPair tyG tyG) dvis (fun y z _ m =>
-                                                                               (exp y, (exp z) * m)%fcg)].
-
+                                                                               (exp y, (exp z) * (if b then m else @ident G _))%fcg)].
 
     Close Scope posrat_scope.
     Open Scope nat_scope.
 
   Arguments rbind [N T H ].
   
-Lemma eg_step1 : ElGamal_real <~~> eg1.
-  rewrite /ElGamal_real /eg1.
+Lemma eg_step1 b : ElGamal b <~~> eg1 b.
+  rewrite /ElGamal /eg1.
   simpl.
   unfold_bind0_at rightc "samp" "samp1" tyZq.
   unfold_at rightc "samp".
@@ -157,12 +145,12 @@ Lemma eg_step1 : ElGamal_real <~~> eg1.
   reflexivity.
 Qed.
 
-Lemma eg_factor_eq : eg1 <~~> (eg1_factor ||| ddh0).
+Lemma eg_factor_eq b : eg1 b <~~> (eg1_factor b ||| ddh0).
   r_move_at leftc 0 6.
   reflexivity.
 Qed.
 
-Lemma eg_step2 : (eg1_factor ||| ddh1) <~~> eg2.
+Lemma eg_step2 b : (eg1_factor b ||| ddh1) <~~> eg2 b.
   rewrite /rlist_comp_hide //= /eg2.
 
   unfold_bind0_at leftc "samp" "x" tyZq.
@@ -192,84 +180,67 @@ Lemma eg_step2 : (eg1_factor ||| ddh1) <~~> eg2.
   reflexivity.
 Qed.
 
-Lemma eg_step3 : eg2 <~~> ElGamal_ideal.
+Lemma eg_step3 : eg2 false <~~> eg2 true.
   rewrite /eg2.
   simpl.
-  rewrite /ElGamal_ideal.
-  r_move "c" 0.
-  r_move "pk" 1.
-  r_move "z" 2.
-  arg_move_at leftc "c" "z" 0.
-  etransitivity.
-  ensure_bi_r.
-  Check rewr_add_ch_fold.
-  r_move_at leftc "z" 0.
-  apply: (rewr_add_ch_fold).
-  done.
-  done.
-  instantiate (1 := ("m", tyG)).
-  done.
-  simpl.
-
-  rewrite /lset /=.
-  r_ext_at leftc "z" (fun m => (x <- munif [finType of 'Z_q]; ret (Zp_add x (Zp_opp (log m))))).
-    intro m.
-    rewrite -munif_bij.
-    done.
-    generalize (log m) => y.
-    exists (fun x => Zp_add x y).
-    move => x.
-    rewrite -Zp_addA.
-    rewrite Zp_addNz Zp_addC Zp_add0z //=.
-    move => x.
-    rewrite -Zp_addA.
-    rewrite (Zp_addC y) Zp_addNz Zp_addC Zp_add0z //=.
-  unfold_bind1_at leftc "z" "t" tyZq.
-  unfold_at leftc  "z".
-  hid_weak_at leftc  "t" "c".
-  arg_move_at leftc "c" "m" 1.
-  arg_move_at leftc "c" "z" 0.
-  subst_at leftc "z" "c".
-  hid_str_at leftc "z" "c".
-  remove_at leftc "z".
-  r_ext_at leftc "c" (fun (x : 'Z_q) (x0 : G) (x1 : 'Z_q) (g : G) =>
-           ret (exp x1, exp x)).
+  r_ext_at leftc "c" (fun (y : 'Z_q) (z : 'Z_q) (pk : G) (m : G) =>
+                        ret (exp y, exp z)).
+  intros; rewrite mulg0 //=.
+  r_move_at rightc "z" 0.
+  r_move_at rightc "c" 1.
+  arg_move_at rightc "c" "z" 0.
+  fold_at rightc.
+  r_ext_at rightc "c" (fun (y : 'Z_q) (pk : G) (m : G) =>
+                         (z <- munif [finType of 'Z_q]; ret (exp y, exp z))).
+  r_ext_at rightc "c" (rbind nil [:: ("y", tyZq); ("pk", tyG); ("m", tyG)] ("z", tyZq) ("c", tyPair tyG tyG) (munif [finType of 'Z_q]) (fun z y _ _ => ret (exp y, exp z))).
+  unfold_at rightc "c".
+  align.
+  arg_move_at rightc "c" "y" 0.
+  reflexivity.
+  intros; unlock rbind; rewrite //.
   intros.
-  rewrite -{2}(log_exp x0).
-  rewrite -Hop.
+  Check munif_bij.
+  Check Zp_add.
+  rewrite {2}(munif_bij (fun (y : 'Z_q) => Zp_add (y) (log x1))%fcg).
+  msimp.
+  apply mbind_eqP => y Hy.
+  rewrite Hop.
+  rewrite log_exp //=.
+  exists (fun y => Zp_add y (Zp_opp (log x1))).
+  move => a.
+  rewrite -Zp_addA.
+  rewrite (Zp_addC (log x1)).
+  rewrite Zp_addNz.
+  rewrite Zp_addC Zp_add0z //=.
+  move => a.
   rewrite -Zp_addA.
   rewrite Zp_addNz Zp_addC Zp_add0z //=.
- rename_at leftc "t" "z".
-  r_move "c" 0.
-  r_move_at leftc "z" 0.
-  etransitivity.
-  symmetry.
-  apply: (rewr_add_ch_fold).
-  done.
-  done.
-  done.
-  simpl.
-  align.
-  arg_move_at leftc "c" "y" 0.
-  arg_move_at leftc "c" "pk" 2.
-  reflexivity.
 Qed.
 
-Lemma ElGamal_secure: ddh0 <~~> ddh1 -> ElGamal_real <~~> ElGamal_ideal.
+Lemma ElGamal_secure: ddh0 <~~> ddh1 -> ElGamal false <~~> ElGamal true.
   intro.
   etransitivity.
   apply eg_step1.
   etransitivity.
   apply eg_factor_eq.
   etransitivity.
-  instantiate (1 := eg1_factor ||| ddh1).
+  instantiate (1 := eg1_factor false ||| ddh1).
   apply: rewr_congr.
   done.
   done.
   done.
   etransitivity.
   apply eg_step2.
+  etransitivity.
   apply eg_step3.
+  rewrite -eg_step2.
+  rewrite rewr_congr.
+  instantiate (1 := ddh0).
+  rewrite -eg_factor_eq.
+  rewrite eg_step1 //=; reflexivity.
+  done.
+  done.
+  symmetry; done.
 Qed.
   
 

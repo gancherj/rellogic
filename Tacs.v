@@ -143,6 +143,13 @@ Section Lems.
       rewrite /rbind //=.
     Qed.
 
+    Lemma lift_bind3 (p1 p2 p3 : N * T) (n : N) t f (m : denomT p1.2 -> denomT p2.2 -> denomT p3.2 -> meas (denomT t)) (k : denomT p1.2 -> denomT p2.2 -> denomT p3.2 -> denomT t -> meas (denomT f.2)) :
+      @React_eq _ _ _ [:: p1; p2; p3] f (fun x y z => mbind (m x y z) (k x y z))
+                               (rbind [:: p1; p2; p3] nil (n,t) f m (fun n2 p1 p2 p3 => k p1 p2 p3 n2)).
+      unlock rbind.
+      rewrite /rbind //=.
+    Qed.
+
     (* **** reverse lemmas **** *)
 
     Lemma rewr_add_ch_rev (rs : rlist N T) b g f (r : Reaction g f) n (c : N * T):
@@ -340,7 +347,7 @@ Ltac get_tag_at_rec n rs :=
     match rs with
     | (_ :: ?rs') => get_tag_at_rec n' rs'
     end
-  end.
+ end.
       
   
 Ltac get_tag_at a x :=
@@ -496,6 +503,10 @@ Ltac get_val_at a n :=
   Ltac unfold_bind2_at a n midn midty :=
     let i := pos_of_at a n in
     apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind2 _ _ midn midty)]); rewrite /lset //=.
+
+  Ltac unfold_bind3_at a n midn midty :=
+    let i := pos_of_at a n in
+    apply_bi_at a ltac:(apply: (rewr_ext i); [apply : erefl | apply: (lift_bind3 _ _ _ midn midty)]); rewrite /lset //=.
 
 
   Check rewr_fold.
