@@ -80,7 +80,7 @@ Section SecChan.
     [::
        inr ("inS", tyMsg);
        inr ("keyS", tyKey);
-       [:: ("inS", tyMsg); ("keyS", tyKey)] ~> ("sendS", tyCtx) vis enc].
+       [:: ("inS", tyMsg); ("keyS", tyKey)] ~> ("sendSR", tyCtx) vis enc].
 
   Definition realReceiver : rl :=
     [::
@@ -89,10 +89,10 @@ Section SecChan.
        [:: ("deliv", tyCtx); ("keyR", tyKey)] ~> ("outR", tyMsg) dvis dec].
 
   Definition realNet : rl :=
-    [:: inr ("sendS", tyCtx);
-       [:: ("sendS", tyCtx)] ~> ("leak", tyCtx) dvis id;
-       inr ("ans", tyUnit);
-       [:: ("sendS", tyCtx); ("ans", tyUnit)] ~> ("deliv", tyCtx) dvis (fun x _ => x)].
+    [:: inr ("sendSR", tyCtx);
+       [:: ("sendSR", tyCtx)] ~> ("leak", tyCtx) dvis id;
+       inr ("ansR", tyUnit);
+       [:: ("sendSR", tyCtx); ("ansR", tyUnit)] ~> ("deliv", tyCtx) dvis (fun x _ => x)].
 
   Definition FKey : rl :=
     [:: [::] ~> ("keygen", tyKey) hid keyGen;
@@ -104,17 +104,17 @@ Section SecChan.
 
   Definition idealSender :=
     [:: inr ("inS", tyMsg);
-        [:: ("inS", tyMsg)] ~> ("sendS", tyMsg) dvis id].
+        [:: ("inS", tyMsg)] ~> ("sendSI", tyMsg) dvis id].
 
   Definition idealReceiver :=
     [:: inr ("deliv", tyMsg);
        [:: ("deliv", tyMsg)] ~> ("outR", tyMsg) dvis id].
 
   Definition FSec :=
-    [:: inr ("sendS", tyMsg);
-       [:: ("sendS", tyMsg)] ~> ("query", tyUnit) dvis (fun _ => tt);
-       inr ("ans", tyUnit);
-       [:: ("sendS", tyMsg); ("ans", tyUnit)] ~> ("deliv", tyMsg) dvis (fun x _ => x)].
+    [:: inr ("sendSI", tyMsg);
+       [:: ("sendSI", tyMsg)] ~> ("query", tyUnit) dvis (fun _ => tt);
+       inr ("ansI", tyUnit);
+       [:: ("sendSI", tyMsg); ("ansI", tyUnit)] ~> ("deliv", tyMsg) dvis (fun x _ => x)].
 
   Definition idealNoCorr :=
     idealSender ||| idealReceiver ||| FSec.
@@ -127,29 +127,31 @@ Section SecChan.
                               
     Definition cpa_sim := [::
             inr ("inS", tyMsg);
-            inr ("ans", tyUnit);
+            inr ("ansR", tyUnit);
             [:: ("inS", tyMsg)] ~> ("inCPA", tyMsg) dvis id;
             inr ("ct", tyCtx);
             [:: ("ct", tyCtx)] ~> ("leak", tyCtx) dvis id;
-            [:: ("inS", tyMsg); ("ans", tyUnit)] ~> ("outR", tyMsg) dvis (fun x _ => x)].
+            [:: ("inS", tyMsg); ("ansR", tyUnit)] ~> ("outR", tyMsg) dvis (fun x _ => x)].
 
     Definition rps_nocorr_sim :=
       [:: inr ("query", tyUnit);
-         [::] ~> ("keygen", tyKey) hid keyGen;
-          [:: ("query", tyUnit); ("keygen", tyKey)] ~> ("leak", tyCtx) vis (fun _  k => enc mzero k)].
+         [:: ("query", tyUnit)] ~> ("keygen", tyKey) hid (fun _ => keyGen);
+         [:: ("keygen", tyKey)] ~> ("leak", tyCtx) vis (fun k => enc mzero k);
+         inp ("ansR", tyUnit);
+         [:: ("ansR", tyUnit)] ~> ("ansI", tyUnit) dvis id].
 
   Theorem noCorr_1 : CPA true <~~> CPA false -> realNoCorr <~~> (cpa_sim ||| (CPA true)).
     intros.
     rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at leftc "deliv" "outR".
     remove_at leftc "deliv".
-    autosubst_at leftc "keyS" "sendS".
+    autosubst_at leftc "keyS" "sendSR".
     remove_at leftc "keyS".
     autosubst_at leftc "keyR" "outR".
     remove_at leftc "keyR".
     autosubst_at rightc "inCPA" "ct".
     remove_at rightc "inCPA".
-    rename_at leftc "sendS" "ct".
+    rename_at leftc "sendSR" "ct".
     arg_move_at leftc "ct" "inS" 0.
     
     trans_at leftc "ct" "leak" "keygen" tyKey.
@@ -193,11 +195,11 @@ Qed.
 
   Theorem noCorr_2 : (cpa_sim ||| (CPA false)) <~~> (rps_nocorr_sim ||| idealNoCorr).
     rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
-    autosubst_at rightc "query" "leak".
+    autosubst_at rightc "query" "keygen".
     remove_at rightc "query".
-    autosubst_at rightc "sendS" "leak".
-    autosubst_at rightc "sendS" "deliv".
-    remove_at rightc "sendS".
+    autosubst_at rightc "sendSI" "keygen".
+    autosubst_at rightc "sendSI" "deliv".
+    remove_at rightc "sendSI".
     autosubst_at rightc "deliv" "outR".
     remove_at rightc "deliv".
     autosubst_at leftc "inCPA" "ct".
@@ -212,6 +214,17 @@ Qed.
     r_ext_at leftc "leak" (fun (_ : msg) x0 => enc mzero x0).
      intros; rewrite bind_ret //=.
    align.
+   arg_move_at leftc "leak" "keygen" 0.
+   etransitivity.
+   apply: rewr_add_ch_fold.
+   done.
+   done.
+   rewrite mem_seq1; apply eq_refl.
+   simpl.
+   trans_rev_at leftc "keygen" "leak" "inS".
+   autosubst_at rightc "ansI" "outR".
+   arg_move_at rightc "outR" "inS" 0.
+   remove_at rightc "ansI".
    reflexivity.
   Qed.
 
@@ -230,51 +243,44 @@ Qed.
     apply noCorr_2.
   Qed.
 
+  Print realNoCorr.
 
-  Definition realCorr: rl :=
-    [:: [::] ~> ("keygen", tyKey) vis (munif key);
-        [:: ("keygen", tyKey)] ~> ("keyR", tyKey) dhid id;
-        [:: ("keygen", tyKey)] ~> ("keyS", tyKey) dvis id;
-        inr ("in", tyCtx);
-        [:: ("in", tyCtx)] ~> ("leak", _) dvis id;
-        inr ("ans", tyUnit);
-        [:: ("in", tyCtx); ("ans", tyUnit)] ~> ("deliv", tyCtx) dhid (fun x _ => x);
-        [:: ("deliv", tyCtx); ("keyR", tyKey)] ~> ("outR", tyMsg) dvis (fun c k => dec c k)].
-
+  Definition realCorr : rl :=
+    realReceiver ||| realNet ||| FKey.
   Definition idealCorr : rl :=
-    [:: [::] ~> ("keygen", tyKey) vis (munif key);
-        [:: ("keygen", tyKey)] ~> ("keyS", tyKey) dvis id;
-        inr ("in", tyCtx);
-        [:: ("in", tyCtx); ("keygen", tyKey)] ~> ("dec", tyMsg) dhid dec;
-        [:: ("dec", tyMsg)] ~> ("query", tyUnit) dhid (fun _ => tt);
-        [:: ("in", tyCtx)] ~> ("leak", tyCtx) dvis id;
-        inr ("ans", tyUnit);
-        [:: ("dec", tyMsg); ("ans", tyUnit)] ~> ("deliv", tyMsg) dhid (fun x _ => x);
-        [:: ("deliv", tyMsg)] ~> ("outR", tyMsg) dvis id].
+    idealReceiver ||| FSec.
 
-  Lemma realCorr_wf : R_wf _ _ realCorr.
-    done.
-  Qed.
+  Definition corrSim : rl :=
+    [::
+       [::] ~> ("keygen", tyKey) hid keyGen;
+       [:: ("keygen", tyKey)] ~> ("keyS", tyKey) dvis id;
+       inp ("sendSR", tyCtx);
+       [:: ("sendSR", tyCtx); ("keygen", tyKey)] ~> ("sendSI", tyMsg) dvis dec;
+       inp ("query", tyUnit);
+       [:: ("sendSR", tyCtx); ("query", tyUnit)] ~> ("leak", tyCtx) dvis (fun x _ => x);
+       inp ("ansR", tyUnit);
+       [:: ("ansR", tyUnit)] ~> ("ansI", tyUnit) dvis id].
 
-  Lemma idealCorr_wf : R_wf _ _ realCorr.
-    done.
-  Qed.
 
-  (* figure 13: query is unused? query shouldn't be visible *)
-
-  Theorem corr_equiv : realCorr ~~> idealCorr.
+  Theorem corr_equiv : realCorr ~~> (idealCorr ||| corrSim).
     rewrite /realCorr /idealCorr.
+    rewrite /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at leftc "keyR" "outR".
     remove_at leftc "keyR".
     autosubst_at leftc "deliv" "outR".
     remove_at leftc "deliv".
-    autosubst_at rightc "dec" "deliv".
-    autosubst_at rightc "dec" "query".
-    remove_at rightc "dec".
-    remove_at rightc "query".
     autosubst_at rightc "deliv" "outR".
     remove_at rightc "deliv".
-    arg_move_at leftc "outR" "ans" 2.
+    autosubst_at rightc "query" "leak".
+    remove_at rightc "query".
+    autosubst_at rightc "sendSI" "outR".
+    autosubst_at rightc "sendSI" "leak".
+    remove_at rightc "sendSI".
+    autosubst_at rightc "ansI" "outR".
+    remove_at rightc "ansI".
+    align.
+    arg_move_at leftc "outR" "ansR" 0.
+    hid_str_at rightc "keygen" "leak".
     reflexivity.
   Qed.
 
