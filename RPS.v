@@ -106,17 +106,23 @@ Section RPS.
     | Some b => Some (~~ b)
                      end.
 
-  Definition rpsIdeal : rl :=
-    [:: inp ("inA", tyPlay);
-      inp ("inB", tyPlay);
-      [:: ("inA", tyPlay)] ~> ("sendA", tyPlay) hid mret;
-      [:: ("inB", tyPlay)] ~> ("sendB", tyPlay) hid mret;
-      [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dhid rps_comp;
-      [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvB", tyAns) dhid rps_comp;
-      [:: ("recvA", tyAns)] ~> ("outA", tyAns) dvis id;
-      [:: ("recvB", tyAns)] ~> ("outB", tyAns) dvis id
-    ].
+  Definition rpsIdealP (b : bool) :=
+    let me := if b then "A" else "B" in
+    let them := if b then "B" else "A" in
+    [::
+       inp ("in" ++ me, tyPlay);
+       [:: ("in" ++ me, tyPlay)] ~> ("send" ++ me, tyPlay) dhid id;
+       inp ("recv" ++ me, tyAns);
+       [:: ("recv" ++ me, tyAns)] ~> ("out" ++ me, tyAns) dvis id].
+  Definition rpsIdealF :=
+    [::
+       inp ("sendA", tyPlay);
+       inp ("sendB", tyPlay);
+       [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dvis rps_comp;
+       [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvB", tyAns) dvis rps_comp].
 
+  Definition rpsIdeal :=
+    (rpsIdealP true) ||| (rpsIdealP false) ||| rpsIdealF.
 
   Definition rpsRealP (p : bool) :rl :=
     let me := if p then "A" else "B" in
@@ -160,7 +166,7 @@ Section RPS.
   (******* NOBODY CORRUPTED ********)
     
   Lemma ideal_rewr : r_rewr rps_simp rpsIdeal.
-    rewrite /rpsIdeal /rps_simp.
+    rewrite /rpsIdeal /rps_simp /rlist_comp_hide; vm_compute RChans.
     simpl.
 
     autosubst_at rightc "sendA" "recvA".
@@ -245,36 +251,25 @@ Lemma rps_comp_inv_bE x y : rps_comp_inv_b x (rps_comp y x) = y.
 induction x; induction y; done.
 Qed.
 
-Definition rpsIdeal_corr : rl :=
-[:: inr ("inA", tyPlay);
-    inr ("comB", tyPlay);
-    [:: ("inA", tyPlay)] ~> ("sendA", tyPlay) hid mret;
-    [:: ("comB", tyPlay)] ~> ("sendB", tyPlay) hid mret;
+Print rpsIdeal.
+
+Definition rpsIdeal_corr :=
+  rpsIdealP true ||| rpsIdealF.
+
+Definition rpsSim :=
+  [::
+     inr ("comB", tyPlay);
+    [:: ("comB", tyPlay)] ~> ("sendB", tyPlay) vis mret;
     [::] ~> ("committedA", tyUnit) dvis tt;
     inr ("openB", tyUnit);
-    
-    [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvA", tyAns) dhid rps_comp;
-    [:: ("sendA", tyPlay); ("sendB", tyPlay)] ~> ("recvB", tyAns) dhid rps_comp;
-    [:: ("sendB", tyPlay); ("recvB", tyAns)] ~> ("valA", tyPlay) dvis rps_comp_inv_b;
-    [:: ("recvA", tyAns)] ~> ("outA", tyAns) dvis id
-].
+    inr ("recvB", tyUnit);
+    [:: ("sendB", tyPlay); ("recvB", tyAns)] ~> ("valA", tyPlay) dvis rps_comp_inv_b].
 
 Definition rpsReal_corr : rl :=
-  [::
-     inr ("inA", tyPlay);
-     inr ("comB", tyPlay);
-     [:: ("inA", tyPlay)] ~> ("comA", tyPlay) dhid id;
-     [:: ("comA", tyPlay)] ~> ("committedA", tyUnit) dvis (fun _ => tt);
-     [:: ("comB", tyPlay)] ~> ("committedB", tyUnit) dhid (fun _ => tt);
-     [:: ("comA", tyPlay); ("committedB", tyUnit)] ~> ("openA", tyUnit) dhid (fun _ _ => tt);
-     inr ("openB", tyUnit);
-     [:: ("comA", tyPlay); ("openA", tyUnit)] ~> ("valA", tyPlay) dvis (fun x _ => x);
-     [:: ("comB", tyPlay); ("openB", tyUnit)] ~> ("valB", tyPlay) dhid (fun x _ => x);
-     [:: ("inA", tyPlay); ("valB", tyPlay)] ~> ("outA", tyAns) dvis rps_comp
-                                            ].
+  rpsRealF true ||| rpsRealF false ||| rpsRealP true.
 
-Lemma rps_corr : rpsReal_corr ~~> rpsIdeal_corr.
-  rewrite /rpsReal_corr /rpsIdeal_corr.
+Lemma rps_corr : rpsReal_corr ~~> (rpsSim ||| rpsIdeal_corr).
+  rewrite /rpsReal_corr /rpsIdeal_corr /rlist_comp_hide; vm_compute RChans.
   simpl.
   autosubst_at leftc "comA" "committedA".
   autosubst_at leftc "comA" "openA".
@@ -299,7 +294,7 @@ Lemma rps_corr : rpsReal_corr ~~> rpsIdeal_corr.
   autosubst_at rightc "sendA" "outA".
   remove_at rightc "sendA".
   align.
-  r_ext_at rightc "valA" (fun (x x0 : play) => ret x).
+  r_ext_at rightc "valA" (fun (x x0 : play) => ret x); last first.
     intros; rewrite rps_comp_inv_bE //=.
     rewrite /lset //=.
   inp_str_at leftc "committedA" "inA" tyPlay.
