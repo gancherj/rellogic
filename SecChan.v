@@ -133,28 +133,37 @@ Section SecChan.
             [:: ("ct", tyCtx)] ~> ("leak", tyCtx) dvis id;
             [:: ("inS", tyMsg); ("ansR", tyUnit)] ~> ("outR", tyMsg) dvis (fun x _ => x)].
 
-    Definition rps_nocorr_sim :=
+    Definition real_nocorr_sim :=
       [:: inr ("query", tyUnit);
          [:: ("query", tyUnit)] ~> ("keygen", tyKey) hid (fun _ => keyGen);
          [:: ("keygen", tyKey)] ~> ("leak", tyCtx) vis (fun k => enc mzero k);
          inp ("ansR", tyUnit);
          [:: ("ansR", tyUnit)] ~> ("ansI", tyUnit) dvis id].
 
-  Theorem noCorr_1 : CPA true <~~> CPA false -> realNoCorr <~~> (cpa_sim ||| (CPA true)).
-    intros.
-    rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
-    autosubst_at leftc "deliv" "outR".
-    remove_at leftc "deliv".
-    autosubst_at leftc "keyS" "sendSR".
-    remove_at leftc "keyS".
+    Definition realSimp :=
+      [::
+         inp ("inS", tyMsg);
+         inp ("ansR", tyUnit);
+         [:: ("inS", tyMsg); ("ansR", tyUnit)] ~> ("outR", tyMsg) dvis (fun x _ => x);
+         [::] ~> ("keygen", tyKey) hid keyGen;
+         [:: ("inS", tyMsg); ("keygen", tyKey)] ~> ("ct", tyCtx) hid enc;
+         [:: ("ct", tyCtx)] ~> ("leak", _) dvis id].
+
+  Theorem noCorr_real_simp : realNoCorr <~~> realSimp.
+    rewrite /realNoCorr /realSimp /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at leftc "keyR" "outR".
     remove_at leftc "keyR".
-    autosubst_at rightc "inCPA" "ct".
-    remove_at rightc "inCPA".
+    autosubst_at leftc "keyS" "sendSR".
+    remove_at leftc "keyS".
+
+    autosubst_at leftc "deliv" "outR".
+    remove_at leftc "deliv".
+
     rename_at leftc "sendSR" "ct".
     arg_move_at leftc "ct" "inS" 0.
-    
     trans_at leftc "ct" "leak" "keygen" tyKey.
+
+    arg_move_at leftc "outR" "keygen" 0.
     r_ext_at leftc "outR" (rbind [:: ("keygen", tyKey); ("ct", tyCtx)] [:: ("ans", tyUnit)] ("tmp", tyMsg) ("outR", tyMsg) (fun x y => ret (dec y x)) (fun (x : msg) _ _ _ => ret x)).
 
         intros; unlock rbind; rewrite //=.
@@ -191,9 +200,20 @@ Section SecChan.
    hid_str_at leftc "keygen" "outR".
    align.
    reflexivity.
-Qed.
+  Qed.
 
-  Theorem noCorr_2 : (cpa_sim ||| (CPA false)) <~~> (rps_nocorr_sim ||| idealNoCorr).
+  Theorem noCorr_1 : CPA true <~~> CPA false -> realNoCorr <~~> (cpa_sim ||| (CPA true)).
+    intros.
+    rewrite noCorr_real_simp.
+    rewrite /realSimp /rlist_comp_hide; vm_compute RChans; simpl.
+  autosubst_at rightc "inCPA" "ct".
+  remove_at rightc "inCPA".
+
+  align.
+   reflexivity.
+    Qed.
+
+  Theorem noCorr_2 : (cpa_sim ||| (CPA false)) <~~> (real_nocorr_sim ||| idealNoCorr).
     rewrite /realNoCorr /rlist_comp_hide; vm_compute RChans; simpl.
     autosubst_at rightc "query" "keygen".
     remove_at rightc "query".
@@ -229,7 +249,7 @@ Qed.
   Qed.
 
   Theorem noCorr : CPA true <~~> CPA false -> exists sim, r_compat _ _ sim idealNoCorr /\ realNoCorr <~~> (sim ||| idealNoCorr).
-    intros; exists rps_nocorr_sim; split.
+    intros; exists real_nocorr_sim; split.
     done.
     etransitivity.
     apply noCorr_1.
